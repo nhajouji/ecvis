@@ -4,14 +4,36 @@
 
 We're going to play around with two seemingly unrelated types of mathematical objects:
 
-1.) Elliptic curves over finite fields
+1. Elliptic curves over finite fields
 
-2.) Lattices in the complex plane
+2. Lattices in the complex plane
 
-We want to do two things with these objects:
+## Key Math Ideas
 
-* Visualization: We want to obtain new visualizations of 1) using 2).
-* "Machine learning": We want to learn about 2). by collecting data about 1).
+Let $E/\mathbb{F}_p$ be an elliptic curve and let $\phi : E \to E$ be the Frobenius $\phi: (x,y)\mapsto (x^p,y^p)$.
+Our goal is to visualize this curve.
+
+Visualizing things in positive characteristic is always a bit weird, because  pictures live in $\mathbb{R}^n$ and you simply can't fit a finite field in a real vector space in any meaningful way.
+However, with elliptic curves, enough crazy things work out that we can actually produce meaningful pictures by lifting everything (in a meaningful way) to characteristic 0.
+
+The magic result that makes this possible is the following: We can always find a curve $\tilde{E}$, together with an endomrphism $\tilde{\phi}: \tilde{E}\to \tilde{E}$, such that the reduction of $\tilde{E}$ mod $p$ is $E$ and the reduction of $\tilde{\phi}$ is the Frobenius.
+
+We will use this to lift the points of $E$ that are defined over $\mathbb{F}_p$ (or more generally the points that are defined over $\mathbb{F}_{p^n}$) to points on $\tilde{E}$.
+
+* The curve $\tilde{E}$ is necessarily isogenous to a curve with CM so its $j$-invariant is an algebraic integer. Thus, we can find a model of $\tilde{E}$ which is defined over the algebraic integers, and thus can be reduced modulo any prime. 
+* Nextt, note that every point which is defined over a finite field necessarily has finite order in the Mordell-Weil group - thus, we only need to look for torsion points on $\tilde{E}$ that reduce to points which are defined over our finite field of choice ($\mathbb{F}_p$ or $\mathbb{F}_{p^m}$).
+*  The reduction map $\tilde{E}(\overline{\mathbb{Q}})_{tors} \to \tilde{E}(\overline{\mathbb{F}_p})$ is surjective and almost injective - the only points in the kernel are points of order $p^m$, because elliptic curves in characteristic $p$ either have no points of order $p$ or the $p^\infty$ subgroup has rank 1. 
+* The key thing is that every point defined over a finite field gives rise to an essentially unique torsion point on $\tilde{E}$ which has the same order in the Mordell-Weil group. The only possible ambiguity that could arise would be if there is a point of order $p$ in characteristic $p$ (although this won't be an issue).
+* To determine whether a given torsion point $\tilde{P}$ on $\tilde{E}$ reduces, in characteristic $p$, to a point defined over $\mathbb{F}_{p^m}$, all we have to do is check whether $\tilde{\phi}^m(\tilde{P}) = \tilde{P}$.
+* In fact, we don't need to go point by point - we can simply compute the kernel of $\tilde{\phi}^m - \mathrm{id}$. These are exactly the points on $\tilde{E}$ that are fixed by $\tilde{\phi}^m$ and correspond to the points in characteristic $p$ that are fixed by $(x,y)\mapsto (x^{p^m},y^{p^m})$.
+
+To obtain our visualizations, we will use lifts of $E$ of the form $\mathbb{C}/\Lambda$. On an analytic model of this form, the lift of Frobenius is just a map of the form $z+\Lambda \mapsto \alpha z + \Lambda$, where $\alpha$ is a complex algebraic integer of norm $p$.
+
+The set of points on $\CC/\Lambda$ that are fixed by $\tilde{\phi}^m : z+\Lambda \mapsto \alpha^m z + \Lambda$ is simply $\frac{1}{\alpha^m-1}\Lambda + \Lambda$, so once we know $\alpha, m,\Lambda$ we can immediately obtain pictures.
+
+
+
+
 
 ## Lattices in the complex plane
 
