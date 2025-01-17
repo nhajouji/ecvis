@@ -1,102 +1,126 @@
-# Elliptic Curves over Finite Fields: Visualizations and Data Science
+# Visualizing Elliptic Curves (and other algebraic groups) over Finite Fields
 
 ## Introduction
 
-We're going to play around with two seemingly unrelated types of mathematical objects:
+Our goal is to make meaningful illustrations of varieties over finite fields.
 
-1. Elliptic curves over finite fields
+For concreteness, suppose we have a plane curve in $\mathbb{F}_p^2$. There is an obvious way of making a picture that represents the curve:
+* We represent the ambient space as a $p \times p$ grid of points.
+* We color in the points on the variety in a different color.
 
-2. Lattices in the complex plane
+These pictures don't shed any insight on the curve - we may as well just list the points.
 
-## Key Math Ideas
+A different way to approach this problem is by trying to "lift" the variety over $\mathbb{F}_p$ to a subset of a variety in characteristic 0, assuming we have some way of visualizing the characteristic 0 variety.
+This can be done, but without adding additional constraints, the picture will not be any more meaningful than the previous one - there are infinitely many ways of lifting something in characteristic $p$ to characteristic 0 and they all look different.
+However, this idea can lead to meaningful illustrations if try to lift not just the points of the variety, but also some additional structure.
 
-Let $E/\mathbb{F}_p$ be an elliptic curve and let $\phi : E \to E$ be the Frobenius $\phi: (x,y)\mapsto (x^p,y^p)$.
-Our goal is to visualize this curve.
+## Commutative algebraic groups over finite fields
+### Reduction
+Let:
+* $p \in \mathbb{Z}$ is a prime
+* $\mathbb{Z}^{alg}$ is the ring of algebraic integers.
 
-Visualizing things in positive characteristic is always a bit weird, because  pictures live in $\mathbb{R}^n$ and you simply can't fit a finite field in a real vector space in any meaningful way.
-However, with elliptic curves, enough crazy things work out that we can actually produce meaningful pictures by lifting everything (in a meaningful way) to characteristic 0.
+In order to define lifts, we first need to extend the definition of ``mod $p$" to the ring of algebraic integers.
 
-The magic result that makes this possible is the following: We can always find a curve $\tilde{E}$, together with an endomrphism $\tilde{\phi}: \tilde{E}\to \tilde{E}$, such that the reduction of $\tilde{E}$ mod $p$ is $E$ and the reduction of $\tilde{\phi}$ is the Frobenius.
+This is straightforward: we just need to take a quotient by a maximal ideal of $\mathbb{Z}^{alg}$ that contains the prime $p$.
+The quotient ring is isomorphic to the algebraic closure of $\mathbb{F}_p$,
+so we can think of the quotient map as a surjection of rings
+ $\rho : \mathbb{Z}^{alg} \to \mathbb{F}_p^{alg}$.
+ We say that $\xi_1 \equiv \xi_2 \pmod p$ if $\rho(\xi_1) = \rho(\xi_2)$.
 
-We will use this to lift the points of $E$ that are defined over $\mathbb{F}_p$ (or more generally the points that are defined over $\mathbb{F}_{p^n}$) to points on $\tilde{E}$.
-
-* The curve $\tilde{E}$ is necessarily isogenous to a curve with CM so its $j$-invariant is an algebraic integer. Thus, we can find a model of $\tilde{E}$ which is defined over the algebraic integers, and thus can be reduced modulo any prime. 
-* Nextt, note that every point which is defined over a finite field necessarily has finite order in the Mordell-Weil group - thus, we only need to look for torsion points on $\tilde{E}$ that reduce to points which are defined over our finite field of choice ($\mathbb{F}_p$ or $\mathbb{F}_{p^m}$).
-*  The reduction map $\tilde{E}(\overline{\mathbb{Q}})_{tors} \to \tilde{E}(\overline{\mathbb{F}_p})$ is surjective and almost injective - the only points in the kernel are points of order $p^m$, because elliptic curves in characteristic $p$ either have no points of order $p$ or the $p^\infty$ subgroup has rank 1. 
-* The key thing is that every point defined over a finite field gives rise to an essentially unique torsion point on $\tilde{E}$ which has the same order in the Mordell-Weil group. The only possible ambiguity that could arise would be if there is a point of order $p$ in characteristic $p$ (although this won't be an issue).
-* To determine whether a given torsion point $\tilde{P}$ on $\tilde{E}$ reduces, in characteristic $p$, to a point defined over $\mathbb{F}_{p^m}$, all we have to do is check whether $\tilde{\phi}^m(\tilde{P}) = \tilde{P}$.
-* In fact, we don't need to go point by point - we can simply compute the kernel of $\tilde{\phi}^m - \mathrm{id}$. These are exactly the points on $\tilde{E}$ that are fixed by $\tilde{\phi}^m$ and correspond to the points in characteristic $p$ that are fixed by $(x,y)\mapsto (x^{p^m},y^{p^m})$.
-
-To obtain our visualizations, we will use lifts of $E$ of the form $\mathbb{C}/\Lambda$. On an analytic model of this form, the lift of Frobenius is just a map of the form $z+\Lambda \mapsto \alpha z + \Lambda$, where $\alpha$ is a complex algebraic integer of norm $p$.
-
-The set of points on $\CC/\Lambda$ that are fixed by $\tilde{\phi}^m : z+\Lambda \mapsto \alpha^m z + \Lambda$ is simply $\frac{1}{\alpha^m-1}\Lambda + \Lambda$, so once we know $\alpha, m,\Lambda$ we can immediately obtain pictures.
-
-
+However, it is important to note that the map $\rho$ is not unique - we will be forced to deal with that non-uniqueness when we work with elliptic curves.
+It might be better to write $\pmod \rho$.
 
 
+### Lifting
+Let $X/\mathbb{F}_p$ be a commutative algebraic group,
+and let $G$ be the Galois group $Gal(\mathbb{F}_p^{sep}/\mathbb{F}_p)$.
+* The group $G$ is generated by the Frobenius automorphism $x\mapsto x^p$.
+* $G$ acts on $X$ by endomorphisms of $X$ a a commutative algebraic group (i.e. the maps $x\mapsto g \cdot x$ are morphisms of $X$ as a group and a variety.)
+* To describe the action of $G$, we just need to know the endomorphism $\phi : X \to X$ induced by the Frobenius. Note that $\phi$ fixes the points of $X$ that are defined over $\mathbb{F}_p$, and permutes the points of $X$ that are defined over $\mathbb{F}_p^{sep}$.
 
-## Lattices in the complex plane
+Given $X$ as above, and a reduction map $\rho$,
+we define an algebraic lift of $X$ to be a pair $(\tilde{X}, \tilde{\phi})$,
+where:
+* $\tilde{X}$ is a commutative algebraic group whose reduction mod $\rho$ is isomorphic to $X$.
+* $\tilde{\phi}: \tilde{X}\to \tilde{X}$ is a morphism of commutative algebraic groups that reduces to $\phi$ mod $\rho$.
 
-A lattice in the plane is just a collection of regularly spaced points that go on forever.
-Geometrically, they are like higher dimensional analogs of the set of integers on the number line.
-
-Algebraically, we can think of lattices as "discrete vector spaces":
-* Every lattice can be described using a basis, which will be some linearly independent subset of vectors in a continuous vector space.
-* The associated lattice consists of the set of points that can be obtained as a linear combination of the basis elements, using only INTEGER linear combinations.
-  
-A lattice in the complex plane is just a subset of points that can be obtained as integer linear combinations of some pair of complex numbers $\tau_1, \tau_2$.
-
-### Doubly periodic functions
-
-Let $\Lambda$ be a lattice in $\mathbb{C}$.
-A $\Lambda$-periodic function is a function $f : \mathbb{C} \to \mathbb{C} \cup \{ \infty\}$ 
-with the property that $f(z+\lambda) = f(z)$ for all $z \in \mathbb{C}$ and all $\lambda \in \Lambda$.
-
-The most important example of a $\Lambda$-periodic function is the 'Weierstrass $\wp$-function':
-
-$$ \wp_\Lambda(z) = \frac{1}{z^2} + \sum_{\lambda \in \Lambda \\ lambda \neq 0} \frac{1}{(z-\lambda)^2}-\frac{1}{\lambda^2}$$
-
-The Weierstrass $\wp$-function plays the role that sine/cosine play in the theory of "normal" periodic functions.
-
-Just as sine, cosine satisfy a fundamental relation - $\sin^2 +\cos^2 = 1$ - the Weierstrass function and its derivative satisfy an equation of the form:
-$$\wp_\Lambda'(z)^2 = 4\wp_\Lambda(z)^3 + f(\Lambda) \wp_\Lambda(z) + g(\Lambda) $$
-where $f(\Lambda), g(\Lambda)$ are fixed complex numbers that depend on $\Lambda$.
+### What we can hope to visualize using lifts
+Given a lift $\tilde{X}, \tilde{\phi}$,
+define $\tilde{X}(\mathbb{F}_{p^n})$ to be the set of fixed points of
+$\tilde{\phi}^n$.
+Then:
+* The group homorphism $\tilde{X}(\mathbb{Z}^{alg})\to X(\mathbb{F}_p^{sep})$ restricts to an isomorphism $\tilde{X}(\mathbb{F}_{p^n})\to X(\mathbb{F}_{p^n})$,
+so we can use pictures of $\tilde{X}(\mathbb{F}_{p^n})$ to visualize $X(\mathbb{F}_{p^n})$. 
+* $\tilde{X}(\mathbb{F}_{p^n})$ is a subgroup (it coincides with the kernel of $\tilde{\phi}^n - \mathrm{id}$.), so this allows us to visualize the group structure better (assuming we can visualize it in characteristic 0).
+* As a bonus, we can also see how Frobenius acts on the points of $\tilde{X}$ that are defined over any finite extension of $\mathbb{F}_p$.
 
 
-### The $j$-map
-Two lattices are "homothetic" if one can be transformed into the other using rotations and rescalings. For a pair of lattices $\Lambda_1, \Lambda_2$ in the complex plane, this is equivalent to saying $\Lambda_1 = z \Lambda_2$ for some complex number $z$.
-(Here $z \Lambda_2$ means the set obtained by multiplying every element in the lattice $\Lambda_2$ by the complex number $z$).
+#### Uniqueness
 
-Given $\tau_1, \tau_2$, we can obtain a new basis that represents a homothetic lattice by dividing by one of the two complex numbers - i.e. we can take $\frac{\tau_1}{\tau_1} = 1, \frac{\tau_2}{\tau_1}$ or $\frac{\tau_2}{\tau_1}, \frac{\tau_2}{\tau_2} = 1$. This is convenient, since one of the new basis vectors will be 1, so we only have to keep track of the second. Thus, it is common to assume that the basis is $1,\tau$. Furthermore, swapping the roles of $\tau_1, \tau_2$ if necessary, we may assume $\tau$ is an element of the upper half plane.
+In a nutshell, here is why the pictures we obtain are "unique":
+* The groups $X(\mathbb{F}_{p^n})$ are all finite, so every point has finite order.
+* In characteristic 0, we will be able to use arguments like 'This is the only subgroup of order 6 so it must be the correct subgroup'.
 
-We will view points on the upper half plane as representing lattices in the complex plane.
+I will be more precise when we get to examples (next).
 
-Even though we've eliminated a few degrees of freedom, there are still many elements $\tau$ we can use to represent any lattice. For example, replacing $\tau$ by $\tau' = \tau+1$ does not change the lattice, because any integral linear combination we can obtain using $1, \tau$ can be obtained using $1,\tau+1$ and vice versa.
+## Examples
 
-Two elements $\tau_1, \tau_2$ represent the same homothety class of lattices if and only if we can find $a,b, c, d$ satisfying:
-* $ad-bc = 1$
-* $\frac{a\tau_1+b}{c\tau_1+d} = \tau_2$.
+We're going to focus on 1-dimensional algebraic groups: $X$ is either the additive group $\mathbb{G}_a$,
+the multiplicative group $\mathbb{G}_m$ or an elliptic curve.
+* We're not actually going to try picturing the additive group $\mathbb{G}_a$, because it does not have any algebraic lifts: this is because every element in the additive group in characteristic $p$ has finite order, but the additive group is torsionfree in characteristic 0. I'm only mentioning it to highlight that when lifts *do* exist, something special is happening!
 
-To decide whether $\tau_1, \tau_2$ represent homothetic lattices, we have the following tools:
-* There are practical algorithms that allow us to find such an $a,b,c,d$, if any exist.
-* There is also a surjective function $j_{an}: \mathcal{H}\to \mathbb{C}$ with the following property:
-$j_{an}(\tau) = j_{an}(\tau')$ if and only if the lattices generated by $1,\tau$ and $1,\tau'$ are homothetic.
+* Lifts of the multiplicative group *do* exist, and they are super easy to understand! The multiplicative group of a finite field is cyclic, and the multiplicative group in characteristic 0 has exactly one cyclic subgroup of order $n$ for each $n \in \mathbb{N}$ (generated by a primitive $n$th root of unity),
+so the whole story is completely straightforward. The lift of Frobenius to characteristic 0 is given by the same formula ($x\mapsto x^p$).
 
-Now, we can't actually compute the function $j_{an}$ explicitly, but we will be able to do something almost as good:
-For (infinitely many, but only countably infinitely many) lattices, the value of $j_{an}(\tau)$ will be an "algebraic integer". This means $j_{an}(\tau)$ can be described as a root of a monic polynomial with integer coefficients.
-Once we obtain the polynomial associated to $\tau$, we can solve it to obtain the value of $j_{an}(\tau)$.
+Lifts of elliptic curves are where things get interesting:
+* They always exist.
+* We can use make pictures using very specific lattices that vary from curve to curve.
+* Assuming a reduction map has been fixed, lifts are unique up to isomorphism.
+* *But* there is a weird ambiguity - changing the reduction map can permute which lift belongs to which elliptic curve $\pmod p$.
 
-There's only one problem: the polynomial will have multiple roots. Each of these other roots comes from a lattice generated by some $\tau_i$ which is related to the original $\tau$.
+We will explain this "ambiguity" next.
 
-## Elliptic Curves
+## Algebraic lattices and Analytic Lifts
 
-An elliptic curve is the set of solutions to an equation of the form:
-$$ y^2 = x^3 + fx + g$$
+Let $X(1) = \mathcal{H}/SL_2(\mathbb{Z})$ be the quotient of the upper half plane by the modular group, and $j :  X(1) \to \mathbb{CP}^1$ the classical $j$-invariant.
 
-For example, the image of $\mathbb{C}$ under the map $z \mapsto (\wp(z),\wp'(z))$ is an elliptic curve.
+Let $\Lambda \subset \mathbb{C}$ be a lattice - the homothety class of $\Lambda$ gives rise to a point on $X(1)$,
+and the $j$-invariant sends the homothety class of $\Lambda$ to an element of $\mathbb{CP}^1$.
 
+* We say that $\Lambda$ is algebraic if $j([\Lambda])$ is an algebraic number.
+* We say that $\Lambda$ is integral if $j([\Lambda])$ is an algebraic integer.
+* If $\Lambda, \Lambda'$ are algebraic lattices, we say they are algebraically similar if their $j$-invariants have the same minimal polynomial over $\mathbb{Z}$,
+i.e. if the $j$-invariants are Galois conjugates of each other.
 
+### Analytic lifts
 
+Fix a prime $p$ and a reduction map $\rho : \mathbb{Z}^{alg} \to \mathbb{F}_p^{alg}$, and let $E/\mathbb{F}_p$ be an elliptic curve.
 
-## Elliptic Curves over Finite Fields
+An analytic lift of $E$ is a pair $(\Lambda, \alpha)$,
+where:
+* $\Lambda$ is an algebraic integral lattice, 
+* $\alpha$ is a complex number satisfying $\alpha \Lambda \subset \Lambda$, and 
+* The pair $(\mathbb{C}/\Lambda, z+\Lambda\mapsto \alpha z + \Lambda)$ (which consists of an elliptic curve over the algebraic integers, and an endomorphism of that elliptic curve) is an algebraic lift of $E$ in the sense we defined earlier. 
+
+We say that two elliptic curves $E, E'/\mathbb{F}_p$ are analytically similar if the following is true: there is a pair $(\Lambda,\alpha)$, and a pair of reduction maps $\rho, \rho'$, such that $(\Lambda, \alpha)$ is a lift of $E$ wrt $\rho$,
+and a lift of $E'$ wrt $\rho'$.
+
+### Analytic vs Algebraic similarity
+
+Fix a reduction map $\rho_0$, and let $E, E'$ be elliptic curves.
+
+Suppose $E, E'$ are analytically similar, and let $(\Lambda, \alpha), (\Lambda, \alpha')$ be analytic lifts wrt to $\rho_0$. Then the lattices $\Lambda, \Lambda'$ must be algebraically similar (and $\alpha = \alpha'$).
+
+On the other hand, suppose $(\Lambda, \alpha)$ is a lift of $E$ wrt to $\rho_0$, and let $\Lambda'$ be a lattice which is algebraically equivalent to $\Lambda$. Then:
+* The complex number $\alpha$ satisfies $\alpha \Lambda' \subset \Lambda'$.
+* The pair $(\Lambda', \alpha)$ is an analytic lift of some $E'/\mathbb{F}_p$ which is analytically similar to $E$.
+
+### Takeaway
+
+It does not make sense to say "This picture represents this specific curve" without specifying the reduction map.
+
+However, we can say "This algebraic equivalence class of lattices represents this analytic equivalence class of elliptic curves" without needing to specify the reduction map. (Also, it is possible that the equivalence class contains a single element, and if that's the case, we can say "this picture represents this curve")
+
+So, when we make pictures, we will be making several pictures at a time - and we can't really say which of the pictures represents which of the polynomial equations. 
 
