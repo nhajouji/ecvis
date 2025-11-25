@@ -1,12 +1,13 @@
 ## Data loading
 
 import json
+from ecc.ringclasses import Polynomial, PolyFp
 
-with open('data/atkinpolys.json', 'r') as f:
+with open('ecc/data/atkinpolys.json', 'r') as f:
     atkin_polys_raw = json.load(f)
 atkin_polys_dict = {int(p):atkin_polys_raw[p] for p in atkin_polys_raw}
 
-with open('data/hilbpolys.json', 'r') as f:
+with open('ecc/data/hilbpolys.json', 'r') as f:
     hilbpolys_raw = json.load(f)
 hilb_polys_dict = {int(d):hilbpolys_raw[d] for d in hilbpolys_raw}
 
@@ -49,7 +50,6 @@ def eval_atk(x:int,l:int,p:int):
     b = (b1*pow(b3,3,p))%p
     return ((-a)%p,b)
 
-from ringclasses import Polynomial, PolyFp
 
 def atk_poly_a(l:int,p=0):
     if l not in atkin_polys_dict:

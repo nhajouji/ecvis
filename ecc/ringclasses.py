@@ -1,4 +1,4 @@
-from utils import get_rou_mod, gcd, gcd_list
+from ecc.utils import get_rou_mod, gcd, gcd_list
 
 ############
 # Matrices #

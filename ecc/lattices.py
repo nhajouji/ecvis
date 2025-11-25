@@ -1,4 +1,4 @@
-from utils import quad_rec, gcd, hall_multiplier,axby,discfac, primefact
+from ecc.utils import quad_rec, gcd, hall_multiplier,axby,discfac, primefact
 
 
 def red_bf(abc:tuple)->bool:

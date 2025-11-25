@@ -2,9 +2,13 @@ LICENSE
 README.md
 pyproject.toml
 setup.cfg
-code/__init__.py
-code/lattices.py
-code/numbertheory.py
+ecc/__init__.py
+ecc/ecfp.py
+ecc/lattices.py
+ecc/modularpolynomials.py
+ecc/ringclasses.py
+ecc/utils.py
+ecc/data/__init__.py
 ecvis.egg-info/PKG-INFO
 ecvis.egg-info/SOURCES.txt
 ecvis.egg-info/dependency_links.txt

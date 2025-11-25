@@ -1,7 +1,7 @@
-from utils import quad_rec,discfac,divisors
-from ringclasses import *
-from lattices import get_cl_reps
-from modularpolynomials import *
+from ecc.utils import quad_rec,discfac,divisors
+from ecc.ringclasses import *
+from ecc.lattices import get_cl_reps
+from ecc.modularpolynomials import *
 
 def j_to_fg(j:int,char = 0):
     if j == 0:
@@ -84,7 +84,9 @@ def endo_db_check(j:int,p:int)->list[int]:
 def fp_isog_codomains(j:int,l:int,p:int):
     y0s = atk_at_j(j,l,p).mod(p).find_roots_BrFo()
     atkin_linear = atk_poly_a(l,p).mod(p)
-    return [(-atkin_linear.eval(y0)-j)%p for y0 in y0s]
+    return [(atkin_linear.eval(y0)-j)%p for y0 in y0s]
+
+
 
 
 def get_endo_disc_cands(fg:tuple[int,int],p)->list[int]:
