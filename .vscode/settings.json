@@ -1,0 +1,7 @@
+{
+  "terminal.integrated.env.osx": {
+    "JUPYTER_PATH": "${workspaceFolder}/share/jupyter"
+  },
+  "python.defaultInterpreterPath": "${workspaceFolder}/path/to/venv/bin/python",
+  "python.envFile": "${workspaceFolder}/.env"
+}

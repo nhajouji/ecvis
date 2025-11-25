@@ -1,89 +1,5 @@
-import numpy as np
-import matplotlib.pyplot as plt
+from utils import quad_rec, gcd, hall_multiplier,axby,discfac, primefact
 
-## General stuff
-def nearest_int(x:float)->int:
-    cands = [int(x),int(x)+1,int(x)-1]
-    cands.sort(key = lambda t:abs(t-x))
-    return cands[0]
-
-def tau_to_verts(tau:np.array)->np.array:
-    one = np.array([1,0])
-    zero = np.array([0,0])
-    return np.array([zero,one,one+tau,tau,zero])
-
-def lattice_pts(tau0:np.array,tau1:np.array,r:float)->np.array:
-    l0 = np.linalg.norm(tau0)
-    l1 = np.linalg.norm(tau1)
-    m = int(r//min(l0,l1))
-    cands = [a*tau0+b*tau1 for a in range(-m,m+1) for b in range(-m,m+1)]
-    return np.array([z for z in cands if np.linalg.norm(z)<r])
-
-def lattice_pt_grs(ap:tuple,tau_a:np.array,n):
-    a,p = ap
-    i = np.roots([1,0,1])[0]
-    tau = np.dot(tau_a,[1,i])
-    xi = np.roots([1,-a,p])[0]
-    r = max([1,abs(tau),abs(tau+1)])*1.3
-    lat0 = lattice_pts(np.array([1,0]),np.array([tau.real,tau.imag]),r)
-    latgroups = [lat0]
-    for k in range(1,n+1):
-        xi_k = (xi**k)-1
-        t1 = 1/xi_k
-        t2 = tau/xi_k
-        latgroups.append(
-            lattice_pts(np.array([t1.real,t1.imag]),np.array([t2.real,t2.imag]),r)
-            )
-    return latgroups
-
-def check_fd(pt,tau,ep):
-    ych = (pt[1]+ep)*(tau[1]+ep-pt[1])
-    if ych < 0:
-        return False
-    slope = tau[0]/tau[1]
-    x_left_bd = pt[1]*slope
-    x_right_bd = pt[1]*slope +1
-    return (pt[0]-x_left_bd+ep)*(x_right_bd-pt[0]+ep)>=0
-
-def trim_groups(pt_groups,tau,ep):
-    return [np.array([pt for pt in group if check_fd(pt,tau,ep)])
-                   for group in pt_groups]
-
-def lattice_pt_grs_slim(ap,tau,n,ep):
-    groups = lattice_pt_grs(ap,tau,n)
-    return trim_groups(groups,tau,ep)
-
-def to_torus(R,r,t1,t2):
-    pi = np.pi
-    ct1 = np.cos(2*pi*t1)
-    st1 = np.sin(2*pi*t1)
-    ct2 = np.cos(2*pi*t2)
-    st2 = np.sin(2*pi*t2)
-    x = (R+r*ct1)*ct2
-    y = (R+r*ct1)*st2
-    z = r*st1
-    return np.array([x,y,z])
-
-def lattice_pt_grs_3D_reconly(ap,y,n,ep):
-    groups = lattice_pt_grs_slim(ap,np.array([0,y]),n,ep)
-    groups3d = []
-    for group in groups:
-        group3d = []
-        for pt in group:
-            group3d.append(to_torus(1+y,1,pt[0],pt[1]/y))
-        groups3d.append(np.array(group3d))
-    return groups3d
-
-def make_3d_plot(ap,y,sizes,colors):
-    n = len(sizes)-1
-    groups = lattice_pt_grs_3D_reconly(ap,y,n,0.001)
-    ax = plt.axes(projection ="3d")
-    for i,group in enumerate(groups):
-        ax.scatter3D(xs = group[::,0],ys= group[::,1],zs = group[::,2],
-                     s = sizes[i], c = colors[i%len(colors)])
-    
-
-## Class group reps
 
 def red_bf(abc:tuple)->bool:
     a,b,c = abc
@@ -94,10 +10,15 @@ def red_bf(abc:tuple)->bool:
     elif c == a and b >= 0 and b <= a:
         return True
     return False
-    
+
+# Input: a discriminant d
+# Output: The list of reduced binary quadratic forms with discriminant d
+
 def get_cl_reps(d:int)->list:
     reps_found = []
-    if d % 4 > 1:
+    # First we check that d is indeed a discriminant;
+    # if it isn't, we simply return an empty list because there are no associated lattices
+    if d % 4 > 1 or d >= 0:
         return reps_found
     b = d % 4
     while 3*b *b <= abs(d):
@@ -116,170 +37,439 @@ def get_cl_reps(d:int)->list:
         b+=2
     return reps_found
 
-def get_taus(d:int)->np.array:
-    cl_reps = get_cl_reps(d)
-    return [np.roots(bqf)[0] for bqf in cl_reps]
+
+def get_cl_reps_filtered(d:int)->dict:
+    reps = get_cl_reps(d)
+    ds = {}
+    for abc in reps:
+        a,b,c = abc
+        g = gcd(a,gcd(b,c))
+        a,b,c = a//g,b//g,c//g
+        ds[(a,b,c)]=d//(g*g)
+    grps = {ds[abc]:[] for abc in ds}
+    for abc in ds:
+        grps[ds[abc]].append(abc)
+    return grps
 
 
-class EllCurveCPVis:
-    def __init__(self,frob_trace,prime):
-        self.tr = frob_trace
-        self.p = prime
-        self.disc = frob_trace**2 - 4*prime
-        self.card = prime+1-frob_trace
-        self.taus = get_taus(frob_trace**2 - 4*prime)
-    def __repr__(self):
-        p = self.p
-        c = self.card
-        head = 'Visualizations of elliptic curves mod '
-        mid = ' with cardinality '
-        return head+str(p)+mid+str(c)
-    def tau_arr(self):
-        return np.array([np.array([z.real,abs(z.imag)]) for z in self.taus])
-    def make_plots(self,ep=0.0,k = 0,sizes=[10,3],colors = ['black','red']):
-        taus = self.tau_arr()
-        tau = taus[k]
-        ap = self.tr,self.p
-        n = len(sizes)-1
-        ptsets = lattice_pt_grs_slim(ap,tau,n,ep)
-        xlist = []
-        ylist = []
-        slist = []
-        clist = []
-        n = 0
-        for arr in ptsets:
-            xarr = arr[::,0]
-            yarr = arr[::,1]
-            xlist = np.concatenate((xlist,xarr))
-            ylist = np.concatenate((ylist,yarr))
-            slist+=len(xarr)*[sizes[n%len(sizes)]]
-            clist+=len(xarr)*[colors[n%len(colors)]]
-            n+=1
-        plt.figure()
-        plt.scatter(x=xlist,y=ylist,s=slist,c=clist)
-        plt.plot(tau_to_verts(tau)[::,0],
-                tau_to_verts(tau)[::,1],
-                linestyle = '--')
-        plt.gca().set_aspect('equal')
 
-    def make_plots_exp(self,ep=0.0,k = 0,sizes=[10,3],colors = ['black','red'],normalize=False):
-        taus = self.tau_arr()
-        tau = taus[k]
-        ap = self.tr,self.p
-        n = len(sizes)-1
-        ptsets = lattice_pt_grs_slim(ap,tau,n,ep)
-        i = np.roots([1,0,1])[0]
-        xlist = []
-        ylist = []
-        slist = []
-        clist = []
-        n = 0
-        for arr in ptsets:
-            exparr = np.exp(2*np.pi*i*np.dot(arr,[1,i]))
-            expxys = [np.array([z.real,z.imag]) for z in exparr]
-            #add normalization
-            expxys = np.array(expxys)
-            xarr = expxys[::,0]
-            yarr = expxys[::,1]
-            xlist = np.concatenate((xlist,xarr))
-            ylist = np.concatenate((ylist,yarr))
-            slist+=len(xarr)*[sizes[n%len(sizes)]]
-            clist+=len(xarr)*[colors[n%len(colors)]]
-            n+=1
-        plt.figure()
-        plt.scatter(x=xlist,y=ylist,s=slist,c=clist)
-        plt.gca().set_aspect('equal')
+## Frobenius
 
-    def make_plots_exp_rn(self,ep=0.0,k = 0,sizes=[10,3],colors = ['black','red']):
-        taus = self.tau_arr()
-        tau = taus[k]
-        ap = self.tr,self.p
-        n = len(sizes)-1
-        ptsets = lattice_pt_grs_slim(ap,tau,n,ep)
-        i = np.roots([1,0,1])[0]
-        xlist = []
-        ylist = []
-        slist = []
-        clist = []
-        n = 0
-        for arr in ptsets:
-            expl = []
-            for pt in arr:
-                t = 2*np.pi*pt[0]
-                ct = np.cos(t)
-                st = np.sin(t)
-                l = (1+pt[1])
-                expl.append(l*np.array([ct,st]))
-            expxys = np.array(expl)
-            xarr = expxys[::,0]
-            yarr = expxys[::,1]
-            xlist = np.concatenate((xlist,xarr))
-            ylist = np.concatenate((ylist,yarr))
-            slist+=len(xarr)*[sizes[n%len(sizes)]]
-            clist+=len(xarr)*[colors[n%len(colors)]]
-            n+=1
-        plt.figure()
-        plt.scatter(x=xlist,y=ylist,s=slist,c=clist)
-        plt.gca().set_aspect('equal')
 
+class Matrix2x2:
+    def __init__(self, data):
+        if not isinstance(data, (list, tuple)) or len(data) != 2:
+            raise ValueError("Input must be a 2x2 structure (list of lists or tuple of tuples)")
+        for row in data:
+            if not isinstance(row, (list, tuple)) or len(row) != 2:
+                raise ValueError("Each row must have 2 elements")
+            for element in row:
+                if not isinstance(element, int):
+                    raise TypeError("All elements must be integers")
+        self.data = [list(row) for row in data]  # Store as a list of lists
+
+    def __str__(self):
+        return f"[{self.data[0][0]}, {self.data[0][1]}]\n[{self.data[1][0]}, {self.data[1][1]}]"
+
+    def __add__(self, other):
+        if not isinstance(other, Matrix2x2):
+            raise TypeError("Can only add with another Matrix2x2 object")
+        result = [[0, 0], [0, 0]]
+        for i in range(2):
+            for j in range(2):
+                result[i][j] = self.data[i][j] + other.data[i][j]
+        return Matrix2x2(result)
+
+    def __sub__(self, other):
+        if not isinstance(other, Matrix2x2):
+            raise TypeError("Can only subtract with another Matrix2x2 object")
+        result = [[0, 0], [0, 0]]
+        for i in range(2):
+            for j in range(2):
+                result[i][j] = self.data[i][j] - other.data[i][j]
+        return Matrix2x2(result)
+
+    def __mul__(self, other):
+        if not isinstance(other, Matrix2x2):
+            raise TypeError("Can only multiply with another Matrix2x2 object")
+        result = [[0, 0], [0, 0]]
+        for i in range(2):
+            for j in range(2):
+                for k in range(2):
+                    result[i][j] += self.data[i][k] * other.data[k][j]
+        return Matrix2x2(result)
+    
+    def mvec(self,v):
+        data = self.data
+        a,b,c,d = data[0][0],data[0][1],data[1][0],data[1][1]
+        x,y = v[0],v[1]
+        return [a*x+b*y,c*x+d*y]
+    
+    def det(self):
+        mat = self.data
+        return mat[0][0]*mat[1][1]-mat[0][1]*mat[1][0]
+    
+    def inv(self):
+        mat = self.data
+        a,b,c,d = mat[0][0],mat[0][1],mat[1][0],mat[1][1]
+        det = a*d-b*c
+        if det**2 != 1:
+            raise ValueError('Determinant must be +/- 1 to invert.')
+        return Matrix2x2([[det*d,-det*b],[-det*c,det*a]])
+
+    def gcdfac(self):
+        data = self.data
+        a,b,c,d = data[0][0],data[0][1],data[1][0],data[1][1]
+        g = gcd(gcd(a,b),gcd(c,d))
+        if g == 0:
+            return self, 0
+        else:
+            return Matrix2x2([[a//g,b//g],[c//g,d//g]]),g
+
+    def __pow__(self, power):
+        if not isinstance(power, int):
+            raise ValueError("Power must be an integer")
+        if power < 0:
+            power = -power
+            base = self.inv()
+        else:
+            base = self
+        result =  Matrix2x2([[1, 0], [0, 1]])  # Identity matrix
+        while power > 0:
+            if power % 2 == 1:
+                result *=base
+            power = power//2
+            base *=base
+        return result
+
+    def __eq__(self, other):
+        if not isinstance(other, Matrix2x2):
+            return False
+        return self.data == other.data
+
+## Frobenius matrix
+# The following gives a matrix that represents
+# the action of Frobenius on the lattice,
+# relative to the basis 1, tau.
+def frobmat(ap:tuple[int],abc:tuple[int]):
+    t,p = ap
+    a,b,c = abc
+    g = gcd(gcd(a,b),c)
+    a,b,c = a//g,b//g,c//g
+    df,mf = discfac(t*t-4*p)
+    dt,mt = discfac(b*b-4*a*c)
+    if dt!= df or mf % mt != 0:
+        return 'Check disc'
+    mft = mf // mt
+    trdiff = t+b*mft
+    if trdiff%2 != 0:
+        return 'Check trace'
+    t0 = trdiff//2
+    return Matrix2x2([[t0,-a*c*mft],[mft,t0-b*mft]])
+
+
+
+#############
+## Kernels ##
+#############
+
+def kernel_gen_cyc(mat:list[list[int]])->dict:
+    m00 = mat[0][0]
+    m01 = mat[0][1]
+    m10 = mat[1][0]
+    m11 = mat[1][1]
+    l = m00*m11 - m01*m10
+    l0 = gcd(gcd(m00,l),gcd(m01,l))
+    l1 = gcd(gcd(m10,l),gcd(m11,l))
+    if gcd(l0,l1)>1:
+        return 'Check gcds'
+    n0 = hall_multiplier(l0,l)
+    # Multiplying u by n0 gives us a point that generates a subgroup
+    # of index l0c; the order of the point is l/l0c
+    l0c = n0*l0
+    # We need a point of order l0c, and index l/l0c
+    # We already have a point of order l/l1
+    n1 = l//(l0c*l1)
+    # v already has order l/l1
+    # (l/l1) *v = 0, so (l/l1)/(l0c) will have order l0c
+    xg = -(n0*m01+n1*m11)%l
+    yg = (n0*m00+n1*m10)%l
+    # Note that gcd(xg,yg, l) should now be equal to 1.
+    # If gcd(xg,yg) is not 1, we can factor it out
+    gxy = gcd(xg,yg)
+    if gcd(gxy,l)!= 1:
+        return 'Something went wrong'
+    if gxy == 0:
+        return 'Something wrong'
+    return {(xg//gxy,yg//gxy):l}
+
+
+def divide_cyclic_gen_v1(gen:dict,m:int)->dict:
+    v = [v for v in gen][0]
+    l = gen[v]
+    x,y = v
+    if gcd(x,y)>1:
+        g =gcd(x,y)
+        if gcd(g,l)>1:
+            return'The generator has the wrong order'
+        x = x//g
+        y = y//g
+        v = (x,y)
+    r,s = axby(v)
+    w = (-l*s %(l*m),l*r%(l*m))
+    return {v:m*l,w:m}
+
+
+def divide_cyclic_gen_old(gen:dict,m:int)->dict:
+    v = [v for v in gen][0]
+    l = gen[v]
+    x,y = v
+    if gcd(x,y)>1:
+        g =gcd(x,y)
+        if gcd(g,l)>1:
+            return'The generator has the wrong order'
+        v = x//g, y//g
+        x,y = v
+    v1 = (l*x)%(l*m),(l*y)%(l*m) 
+    r,s = axby(v1)
+    w = ((-l*s) %(l*m),(l*r)%(l*m))
+    return {v:m*l,w:m}
+
+def divide_cyclic_gen(gen:dict,m:int)->dict:
+    v = [v for v in gen][0]
+    l = gen[v]
+    x,y = v
+    if gcd(x,y)>1:
+        g =gcd(x,y)
+        if gcd(g,l)>1:
+            return'The generator has the wrong order'
+        v = x//g, y//g
+        x,y = v
+    v1 = (l*x)%(l*m),(l*y)%(l*m) 
+    r,s = axby(v1)
+    w = ((l*s) %(l*m),(l*r)%(l*m))
+    return {v:m*l,w:m}
+
+# MW generators
+def mw_gens(ap:tuple[int],abc:tuple[int],n:int)->dict:
+    fmat = frobmat(ap,abc)
+    cmat,m = (fmat**n - (fmat**0)).gcdfac()
+    if abs(cmat.det()) == 1:
+        return {(1,0):m,(0,1):m}
+    elif m == 1:
+        return kernel_gen_cyc(cmat.data)
+    else:
+        return divide_cyclic_gen(kernel_gen_cyc(cmat.data),m)
     
 
+def gens_to_list(gens:dict)->list:
+    den = max(gens.values())
+    pts = [(0,0)]
+    for g in gens:
+        ge = gens[g]
+        gx, gy = g
+        pts_new = []
+        for pt in pts:
+            ptx,pty = pt
+            pts_new+=[((ptx+e*gx)%den,(pty+e*gy)%den)
+                      for e in range(ge)]
+        pts = pts_new
+    return pts
+
+
+import numpy as np
+
+def abc_to_tau(abc:tuple[int,int,int])->np.array:
+    tau_np= np.roots(abc)[0]
+    return np.array([tau_np.real,tau_np.imag])
+
+def mw_arr_from_gens(gens:dict,abc:tuple):
+    den = max(gens.values())
+    one = np.array([1,0])
+    tau = abc_to_tau(abc)
+    pts = [np.array([0,0])]
+    for gen in gens:
+        x,y = gen
+        pts = [(pt0+m*np.array([x,y]))%den 
+               for pt0 in pts for m in range(gens[gen])]
+    return np.array([pt[0]*one+pt[1]*tau for pt in pts])/den
+
+def mw_arr(ap:tuple[int,int],abc:tuple[int,int,int],n:int):
+    gens_dict = mw_gens(ap,abc,n)
+    den = max(gens_dict.values())
+    one = np.array([1,0])
+    tau = abc_to_tau(abc)
+    pts = [np.array([0,0])]
+    for gen in gens_dict:
+        x,y = gen
+        pts = [(pt0+m*np.array([x,y]))%den 
+               for pt0 in pts for m in range(gens_dict[gen])]
+    return np.array([pt[0]*one+pt[1]*tau for pt in pts])/den
+    
+
+### Exporting
+
+def export_points(grp:list,filename:str):
+    file = open(filename,'a')
+    for i in range((len(grp)//3)+1):
+        stri = ''
+        for vec in grp[3*i:3*(i+1)]:
+            stri += '['+str(vec[0])[:10]+','+str(vec[1])[:10]+'],'
+        stri+='\n'
+        file.write(stri)
+    file.close()
+
+
+### Testing
+
+def mwgens_test(ap:tuple[int],abc:tuple[int],n:int):
+    fmat = frobmat(ap,abc)
+    bmat = fmat**n - fmat**0
+    gens = mw_gens(ap,abc,n)
+    den = max(gens.values())
+    results = {}
+    for v in gens:
+        fv = bmat.mvec(v)
+        results[v] = ((fv[0])%den,fv[1]%den)
+    return results
+
+def mwsize_test(gens:dict):
+    expected_size = 1
+    for e in gens.values():
+        expected_size*=e
+    pts = gens_to_list(gens)
+    return {expected_size,len(set(pts))}
+
+
+
+## Moduli ##
+
+### Quadratic forms
+
+def clear_common_fac_bqf(abc:tuple[int,int,int]):
+    a,b,c  = abc
+    g = gcd(gcd(a,b),c)
+    if g == 0:
+        return abc
+    else:
+        return a//g,b//g,c//g
+
+def bqf_disc(abc:tuple[int,int,int])->int:
+    a,b,c = clear_common_fac_bqf(abc)
+    return b**2-4*a*c
+
+
+def bqf_fr(abc:tuple,p:int)->tuple:
+    a,b,c = abc
+    return (p*p*c,-p*b,a)
+
+def sym2(m2:np.matrix)->np.matrix:
+    a = m2[0,0]
+    b = m2[0,1]
+    c = m2[1,0]
+    d = m2[1,1]
+    return np.array([
+        [a*a,a*c,c*c],
+         [2*a*b,b*c+a*d,2*c*d],
+         [b*b,b*d,d*d]
+         ])
+
+def sym2D(m2:np.array)->np.array:
+    a = m2[1,1]
+    b = -m2[0,1]
+    c = -m2[1,0]
+    d = m2[0,0]
+    return np.array([
+        [a*a,a*c,c*c],
+         [2*a*b,b*c+a*d,2*c*d],
+         [b*b,b*d,d*d]
+         ])
+
+def act_bqf(bqf:tuple,mat:np.array)->tuple:
+    a,b,c = tuple(np.matmul(sym2D(mat),bqf))
+    return int(a),int(b),int(c)
+
+def gamma0orb(bqf:tuple,p:int):
+    mats = [np.array([[1,0],[0,1]])]+[np.array([[0,-1],[1,a]]) for a in range(-(p//2),(p//2)+(p%2))]
+    return [act_bqf(bqf,mat) for mat in mats]
+
+def reduce(bqf:tuple)->tuple:
+    matrix = np.array([[1,0],[0,1]])
+    while True:
+        if bqf[0] > bqf[2]:
+            m0 = np.array([[0,-1],[1,0]])
+            matrix = np.matmul(m0,matrix)
+            bqf = act_bqf(bqf,m0)
+            if bqf[0]>bqf[2]:
+                return 'something wrong case 1'
+        elif bqf[0] < abs(bqf[1]):
+            a = bqf[0]
+            b = bqf[1]
+            k = b//(2*a)
+            if b % (2*a) >= a:
+                k+=1
+            m0 = np.array([[1,k],[0,1]])
+            matrix = np.matmul(m0,matrix)
+            bqf = act_bqf(bqf,m0)
+            if bqf[0]<abs(bqf[1]):
+                return 'something wrong case 2'
+        elif bqf[0]+bqf[1]==0:
+            m0 = np.array([[1,-1],[0,1]])
+            matrix = np.matmul(m0,matrix)
+            bqf = act_bqf(bqf,m0)
+            if bqf[0]+bqf[1]==0:
+                return 'something wrong case 3'
+        elif bqf[0]==bqf[2] and bqf[1]<0:
+            m0 = np.array([[0,-1],[1,0]])
+            matrix = np.matmul(m0,matrix)
+            bqf = act_bqf(bqf,m0)
+            if bqf[1]<0:
+                return 'something wrong case 4'
+        else:
+            return tuple(bqf),matrix
         
 
-####
-# Lattice to primes
-###
-
-from primes import primesBetween
-
-def lattice_primes(tau:np.array,r:float,c=1):
-    m = int(r)
-    cands = [a*np.array([1,0])+b*tau for a in range(-m,m+1) for b in range(-m,m+1)]
-    latt_small= np.array([z for z in cands if np.linalg.norm(z)<r and z[1]>=0])
-    norms = [nearest_int(np.linalg.norm(x)**2) for x in latt_small]
-    primes = primesBetween(0,m*m+1)
-    colors = [[0,0,1,0.2] for a in latt_small]
-    sizes = [3 for a in latt_small]
-    primes_c = []
-    for i in range(len(latt_small)):
-        if norms[i] in primes and latt_small[i][1]==c*tau[1]:
-            colors[i] = 'red'
-            sizes[i] = 8
-            primes_c.append(norms[i])
-    plt.figure()
-    plt.scatter(x=latt_small[::,0],y=latt_small[::,1],c=colors,s=sizes)
-    ax = plt.gca()
-    for p in primes_c:
-        ax.add_patch(plt.Circle((0, 0), np.sqrt(p),fill = False,alpha=0.4))
-    ax.set_aspect('equal')
-    plt.ylim((0,r+1))
-    return ax
-
-def lattice_primesX(tau_list,clist,r:float):
-    n = len(tau_list)
-    m = int(r)
-    fig, axs = plt.subplots(n,1)
-    for j,tau in enumerate(tau_list):
-        cands = [a*np.array([1,0])+b*tau for a in range(-m,m+1) for b in range(-m,m+1)]
-        latt_small= np.array([z for z in cands if np.linalg.norm(z)<r and z[1]>=0])
-        norms = [nearest_int(np.linalg.norm(x)**2) for x in latt_small]
-        primes = primesBetween(0,m*m+1)
-        colors = [[0,0,1,0.2] for a in latt_small]
-        sizes = [3 for a in latt_small]
-        primes_c = []
-        for i in range(len(latt_small)):
-            if norms[i] in primes:
-                colors[i] = 'green'
-                if nearest_int(latt_small[i][1]/tau[1]) in clist[j]:
-                    sizes[i] = 8
-                    primes_c.append(norms[i])
-                    colors[i] = 'green'
-                else:
-                    colors[i] = [1,0,0,0.3]
-        axs[j].scatter(x=latt_small[::,0],y=latt_small[::,1],c=colors,s=sizes)
-        for p in primes_c:
-            axs[j].add_patch(plt.Circle((0, 0), np.sqrt(p),fill = False,alpha=0.4))
-        axs[j].set_aspect('equal')
-        axs[j].set_ylim([0,r+1])
+def bqf_iso_verts(abc:tuple[int,int,int],l:int):
+    return [clear_common_fac_bqf(reduce(bqf_fr(tup,l))[0]) for tup in gamma0orb(abc,l)]
 
 
+def bqf_iso_nextrow(abc:tuple[int,int,int],l:int):
+    d0 = bqf_disc(abc)
+    return list(set([tup for tup in bqf_iso_verts(abc,l) if bqf_disc(tup)<d0]))
+
+
+def iso_tree_dm_labels(d:int,m:int):
+    v0s = get_cl_reps(d)
+    labelsdic = {}
+    for i,abc in enumerate(v0s):
+        labelsdic[chr(i+ord('a'))] = abc
+    pfm = primefact(m)
+    for p in pfm:
+        lastbatch = [s for s in labelsdic]
+        for e in range(pfm[p]):
+            newbatch = []
+            for s in lastbatch:
+                abc = labelsdic[s]
+                nextrow = bqf_iso_nextrow(abc,p)
+                for j, abc1 in enumerate(nextrow):
+                    labelsdic[s+str(p)+chr(j+ord('a'))] = abc1
+                    newbatch.append(s+str(p)+chr(j+ord('a')))
+            lastbatch = newbatch
+    return labelsdic
+
+
+### Export all point groups
+
+def ptgroupdata_all(ap:tuple[int,int],n:int):
+    a,p = ap
+    d,m = discfac(a*a-4*p)
+    labels = iso_tree_dm_labels(d,m)
+    data = {}
+    for s in labels:
+        abc = labels[s]
+        gens = mw_gens(ap,abc,n)
+        den = max(gens.values())
+        data[s] = {'tau_minpoly':abc,
+                   'generators':gens,
+                   'denominator':den}
+    return data
