@@ -86,6 +86,18 @@ def fp_isog_codomains(j:int,l:int,p:int):
     atkin_linear = atk_poly_a(l,p).mod(p)
     return [(atkin_linear.eval(y0)-j)%p for y0 in y0s]
 
+def get_cycles(js:list[int],l:int,p:int):
+    cycles = []
+    while len(js)>0:
+        cycle = []
+        nextbatch = [js[0]]
+        while len(nextbatch)>0:
+            j0 = nextbatch[0]
+            cycle.append(j0)
+            nextbatch = [j1 for j1 in fp_isog_codomains(j0,l,p) if j1 not in cycle]
+        cycles.append(cycle)
+        js = [j for j in js if j not in cycle]
+    return cycles
 
 
 
