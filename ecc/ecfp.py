@@ -1,6 +1,6 @@
 from ecc.utils import quad_rec,discfac,divisors
 from ecc.ringclasses import *
-from ecc.lattices import get_cl_reps
+from ecc.lattices import get_cl_reps, check_ssl_gen_qf, bqf_disc
 from ecc.modularpolynomials import *
 
 def j_to_fg(j:int,char = 0):
@@ -86,20 +86,170 @@ def fp_isog_codomains(j:int,l:int,p:int):
     atkin_linear = atk_poly_a(l,p).mod(p)
     return [(atkin_linear.eval(y0)-j)%p for y0 in y0s]
 
-def get_cycles(js:list[int],l:int,p:int):
-    cycles = []
-    while len(js)>0:
-        cycle = []
-        nextbatch = [js[0]]
-        while len(nextbatch)>0:
-            j0 = nextbatch[0]
-            cycle.append(j0)
-            nextbatch = [j1 for j1 in fp_isog_codomains(j0,l,p) if j1 not in cycle]
-        cycles.append(cycle)
-        js = [j for j in js if j not in cycle]
+##
+# This returns cycles of j invariants
+# The primes l are chosen so that they do not divide the conductor - 
+# this means any two js in the same cycle have the same endomorphism ring
+def all_ssl_cycles_from_jp(j0:int,p:int):
+    if (j0 == 0 and p % 3 == 1) or ((j0-1728)% p == 0 and p % 4 == 1):
+        return {l:[j0] for l in atkin_polys_dict} 
+    fg0 = j_to_fg(j0,p)
+    a = trace_frob(fg0,p)
+    d = a*a-4*p
+    d0, c = discfac(d)
+    cycles = {}
+    for l in atkin_polys_dict:
+        if c % l != 0 and quad_rec(d0,l)==1:
+            cycle = []
+            nextbatch = [j0]
+            while len(nextbatch)>0:
+                j1 = nextbatch[0]
+                cycle.append(j1)
+                nextbatch = [j2 for j2 in fp_isog_codomains(j1,l,p) if j2 not in cycle]
+            cycles[l] = cycle
     return cycles
+    
+
+#This returns all j-invariants related to j0 by an isogeny of degree l
+#It summarizes output of last one, and is needed to deal with noncyclic class groups
+#If we don't have a generator, this will contain the codomains of isogenies we found
+#and will be bigger than any single orbit in the noncyclic case we hope
+def j0_to_j1s_in_sslcycs(j0:int,p:int):
+    dic = all_ssl_cycles_from_jp(j0,p)
+    codoms = []
+    for l in dic:
+        codoms+=dic[l]
+    j1s = list(set(codoms))
+    return j1s
+    
+def trfr_to_js(a:int,p:int):
+    return [j for j in range(1,p) if 
+            (j-1728)%p!=0 and abs(trace_frob(j_to_fg(j),p))==abs(a)]
 
 
+def trfr_to_aec_data(a:int,p:int):
+    data = {j:{} for j in trfr_to_js(a,p)}
+    d0,c = discfac(a*a-4*p)
+    if c == 1:
+        return data
+    for l in atkin_polys_dict:
+        if c % l == 0:
+            for j in data:
+                data[j][l]= fp_isog_codomains(j,l,p)
+    return data
+    
+
+def check_leaf(jdata:dict)->bool:
+    ls = [l for l in jdata]
+    if len(ls) == 0 or len(jdata[ls[0]])==0:
+        return True
+    for l in ls:
+        if len(jdata[l])!= 1:
+            return False
+    return True
+
+def trfr_to_leaves(a:int,p:int):
+    data = trfr_to_aec_data(a,p)
+    return [j for j in data if check_leaf(data[j])]
+    
+
+
+def get_functorial_bij_leaves(a:int,p:int,j0=None):
+    d = a**2-4*p
+    if d == -3:
+        return {0:(1,1,1)}
+    elif d== -4:
+        return {(1728%p):(1,0,1)}
+    leaves = trfr_to_leaves(a,p)
+    if j0 == None:
+        j0 = leaves[0]
+    else:
+        if j0 not in leaves:
+            raise ValueError('j0 is not a suitable j-invariant')
+    fpdata = {j0:all_ssl_cycles_from_jp(j0,p)}
+    qfs = [qf for qf in get_cl_reps(d) if bqf_disc(qf)==d]
+    qf0 = qfs.pop(0)
+    j_to_qf = {j0:qf0}
+    leaves = [j for j in leaves if j!= j0]
+    qf_data = check_ssl_gen_qf(d)
+    if qf_data['Solved']:
+        ls = [l0 for l0 in qf_data if isinstance(l0,int)]
+        l = ls[0]
+        cyc_0 = qf_data[l]
+        cyc_p_all = all_ssl_cycles_from_jp(j0,p)
+        if l not in cyc_p_all or len(cyc_0)!= len(cyc_p_all[l]):
+            return {'Status':'Contradiction?',
+                    'j_to_qf':j_to_qf,
+                    'js_unclass':leaves,
+                    'qfs_unclass':qfs}
+        else:
+            cyc_p_l = cyc_p_all[l]
+            for i, j in enumerate(cyc_p_l):
+                j_to_qf[j]=cyc_0[i]
+            return {'Status':'Solved',
+                    'j_to_qf':j_to_qf,
+                    'js_unclass':[j for j in leaves if j not in j_to_qf],
+                    'qfs_unclass':[qf for qf in qfs if qf not in j_to_qf.values()]}
+    ## Find a cycle of max length
+    ### First, make sure we got some cycle with ss level
+    if len(qf_data)<2:
+        return {'Status':'No information from ss isogs',
+                    'j_to_qf':j_to_qf,
+                    'js_unclass':[j for j in leaves if j not in j_to_qf],
+                    'qfs_unclass':[qf for qf in qfs if qf not in j_to_qf.values()]}
+    # compute the lengths of each cycle
+    qf_l_to_cyclen = {l:len(qf_data[l][0]) for l in qf_data if isinstance(l,int)}
+    mlen = max(qf_l_to_cyclen.values())
+    l0 = min([l for l in qf_l_to_cyclen if qf_l_to_cyclen[l]==mlen])
+    cyc_0 = qf_data[l0][0]
+    cyc_p_all = fpdata[j0]
+    if l0 in fpdata[j0] and len(fpdata[j0][l0])==len(cyc_0):
+        for i, j in enumerate(fpdata[j0][l0]):
+            j_to_qf[j]=cyc_0[i]
+    ## Dealing with real j-invariants
+    for j1 in j_to_qf:
+        if j1 not in fpdata:
+            fpdata[j1]=all_ssl_cycles_from_jp(j1,p)
+    for l in qf_l_to_cyclen:
+        newassignments = {}
+        for j1 in fpdata:
+            q1 = j_to_qf[j1]
+            if len(qf_data[l][0])==2 and l in fpdata[j1]:
+                cq1s = [c for c in qf_data[l] if q1 in c]
+                j2s = list({j for j in fp_isog_codomains(j1,l,p) 
+                            if j not in j_to_qf and j not in newassignments})
+                if len(cq1s)==1 and len(j2s)==1:
+                    q2 = [q for q in cq1s[0] if q != q1][0]
+                    j2 = j2s[0]
+                    newassignments[j2]=q2
+        j_to_qf.update(newassignments)
+    leaves = [j for j in leaves if j not in j_to_qf]
+    qfs = [qf for qf in qfs if qf not in j_to_qf.values()]
+    if len(leaves)==0:
+        return {'Status':'Solved',
+                    'j_to_qf':j_to_qf,
+                    'js_unclass':[],
+                    'qfs_unclass':qfs}
+    elif len(leaves)==1:
+        jn = leaves[0]
+        qfs = [qf for qf in qfs if qf not in j_to_qf.values()]
+        if len(qfs)==1:
+            qfn = qfs[0]
+            j_to_qf[jn]=qfn
+            return {'Status':'Solved',
+                    'j_to_qf':j_to_qf,
+                    'js_unclass':[],
+                    'qfs_unclass':[]}
+        else:
+            return {'Status':'Contradiction?',
+                    'j_to_qf':j_to_qf,
+                    'js_unclass':leaves,
+                    'qfs_unclass':qfs}
+    else:
+        return {'Status':'Unsolved',
+                    'j_to_qf':j_to_qf,
+                    'js_unclass':[j for j in leaves if j not in j_to_qf],
+                    'qfs_unclass':[qf for qf in qfs if qf not in j_to_qf.values()]}
 
 def get_endo_disc_cands(fg:tuple[int,int],p)->list[int]:
     j0 = fg_to_j(fg,p)

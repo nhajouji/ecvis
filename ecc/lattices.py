@@ -1,5 +1,5 @@
 from ecc.utils import quad_rec, gcd, hall_multiplier,axby,discfac, primefact
-
+from ecc.modularpolynomials import *
 
 def red_bf(abc:tuple)->bool:
     a,b,c = abc
@@ -437,6 +437,32 @@ def bqf_iso_nextrow(abc:tuple[int,int,int],l:int):
     d0 = bqf_disc(abc)
     return list(set([tup for tup in bqf_iso_verts(abc,l) if bqf_disc(tup)<d0]))
 
+def bqf_horiz_isogs(abc:tuple[int,int,int],l:int):
+    return [bqf for bqf in bqf_iso_verts(abc,l) if bqf_disc(abc)==bqf_disc(bqf)]
+
+def get_cycles_qf_fromd(d:int,l:int):
+    cycles = []
+    qfs = [abc for abc in get_cl_reps(d) if bqf_disc(abc)==d]
+    while len(qfs)>0:
+        cycle = []
+        nextbatch = [qfs[0]]
+        while len(nextbatch)>0:
+            q0 = nextbatch[0]
+            cycle.append(q0)
+            nextbatch = [q for q in bqf_horiz_isogs(q0,l) if q not in cycle]
+        cycles.append(cycle)
+        qfs = [q for q in qfs if q not in cycle]
+    return cycles
+
+def check_ssl_gen_qf(d:int):
+    d0, c = discfac(d)
+    cycs = {'Solved':False}
+    for l in atkin_polys_dict:
+        if c % l != 0 and quad_rec(d0,l)==1:
+            cycs[l] = get_cycles_qf_fromd(d,l)
+            if len(cycs[l])==1:
+                return {l:cycs[l][0],'Solved':True}
+    return cycs
 
 def iso_tree_dm_labels(d:int,m:int):
     v0s = get_cl_reps(d)
