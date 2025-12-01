@@ -1,6 +1,6 @@
 from ecc.utils import quad_rec,discfac,divisors
 from ecc.ringclasses import *
-from ecc.lattices import get_cl_reps, check_ssl_gen_qf, bqf_disc
+from ecc.lattices import get_cl_reps, check_ssl_gen_qf, bqf_disc, bqf_parents
 from ecc.modularpolynomials import *
 
 def j_to_fg(j:int,char = 0):
@@ -99,7 +99,7 @@ def all_ssl_cycles_from_jp(j0:int,p:int):
     d0, c = discfac(d)
     cycles = {}
     for l in atkin_polys_dict:
-        if c % l != 0 and quad_rec(d0,l)==1:
+        if c % l != 0 and quad_rec(d0,l)>=0:
             cycle = []
             nextbatch = [j0]
             while len(nextbatch)>0:
@@ -125,6 +125,34 @@ def j0_to_j1s_in_sslcycs(j0:int,p:int):
 def trfr_to_js(a:int,p:int):
     return [j for j in range(1,p) if 
             (j-1728)%p!=0 and abs(trace_frob(j_to_fg(j),p))==abs(a)]
+
+def trfr_to_models(a:int,p:int):
+    d,c = discfac(a**2-4*p)
+    models = []
+    ns = p-1
+    while ns>1 and quad_rec(ns,p)>0:
+        ns-=1
+    if d == -3:
+        placeholder = (0,1)
+        models.append(placeholder)
+    elif d == -4:
+        placeholder = (1,0)
+        models.append(placeholder)
+    elif a %p == 0:
+        if p % 3 == 2:
+            models+=[(0,1),(0,ns)]
+        if p % 4 == 3:
+            models+=[(p-1,0),(1,0)]
+    for j0 in range(1,p):
+        if (j0-1728)%p!=0:
+            fg0 = j_to_fg(j0,p)
+            tr0 = trace_frob(fg0,p)
+            if tr0 == a:
+                models.append(fg0)
+            if tr0 == -a:
+                f0,g0 = fg0
+                models.append(((f0*(ns**2))%p,(g0*(ns**3))%p))
+    return models
 
 
 def trfr_to_aec_data(a:int,p:int):
@@ -152,7 +180,6 @@ def trfr_to_leaves(a:int,p:int):
     data = trfr_to_aec_data(a,p)
     return [j for j in data if check_leaf(data[j])]
     
-
 
 def get_functorial_bij_leaves(a:int,p:int,j0=None):
     d = a**2-4*p
@@ -250,6 +277,46 @@ def get_functorial_bij_leaves(a:int,p:int,j0=None):
                     'j_to_qf':j_to_qf,
                     'js_unclass':[j for j in leaves if j not in j_to_qf],
                     'qfs_unclass':[qf for qf in qfs if qf not in j_to_qf.values()]}
+
+def get_funct_bij(a:int,p:int):
+    leafdata = get_functorial_bij_leaves(a,p)
+    d, c= discfac(a**2-4*p)
+    if c == 1:
+        return leafdata['j_to_qf']
+    j_to_qf_dic = leafdata['j_to_qf']
+    for l in atkin_polys_dict:
+        while c % l == 0:
+            newassignments = {}
+            for j0 in j_to_qf_dic:
+                j1s = list({j1 for j1 in fp_isog_codomains(j0,l,p) if 
+                            j1 not in j_to_qf_dic and j1 not in newassignments})
+                if len(j1s)==1:
+                    j1 = j1s[0]
+                    q0 = j_to_qf_dic[j0]
+                    q1s = bqf_parents(q0,l)
+                    if len(q1s)==1:
+                        q1 = q1s[0]
+                        newassignments[j1]=q1
+            j_to_qf_dic.update(newassignments)
+            c = c//l
+    return j_to_qf_dic
+            
+class IsogenyClassFp:
+    def __init__(self,a:int,p:int):
+        self.char = p
+        self.trace_frob = a
+        self.disc = a**2-4*p
+        d,c = discfac(self.disc)
+        self.fundisc = d
+        self.cond = c
+        self.fgs = trfr_to_models(a,p)
+        self.jinvs = trfr_to_js(a,p)
+        self.qfs = get_cl_reps(self.disc)
+        self.j_to_qf_dict = get_funct_bij(a,p)
+        self.is_supersingular = (a%p==0)
+        self.card = p-a+1
+
+
 
 def get_endo_disc_cands(fg:tuple[int,int],p)->list[int]:
     j0 = fg_to_j(fg,p)

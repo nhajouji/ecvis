@@ -432,7 +432,10 @@ def reduce(bqf:tuple)->tuple:
 def bqf_iso_verts(abc:tuple[int,int,int],l:int):
     return [clear_common_fac_bqf(reduce(bqf_fr(tup,l))[0]) for tup in gamma0orb(abc,l)]
 
-
+def bqf_parents(abc:tuple[int,int,int],l:int):
+    d = bqf_disc(abc)
+    return list({qf for qf in bqf_iso_verts(abc,l) if bqf_disc(qf)*(l**2)==d})
+    
 def bqf_iso_nextrow(abc:tuple[int,int,int],l:int):
     d0 = bqf_disc(abc)
     return list(set([tup for tup in bqf_iso_verts(abc,l) if bqf_disc(tup)<d0]))
