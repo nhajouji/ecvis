@@ -97,6 +97,9 @@ class IntegerSquareMatrix:
         mat = self.mat
         return IntegerSquareMatrix([[x*n for x in r] for r in mat])
     
+    def __sub__(self,other:IntegerSquareMatrix)->IntegerSquareMatrix:
+        return self+(-1)*other
+    
     def polyeval(self,coefs_x0_to_xn:list[int]):
         one = self**0
         polymat = 0*one
