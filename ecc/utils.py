@@ -266,3 +266,15 @@ def get_rou_mod(m,p):
     return 0
 
 
+def int_sqrt(n:int)->int:
+    if not isinstance(n,int) or n<0:
+        raise ValueError('n must be a nonnegative integer')
+    if n < 2:
+        return n
+    r = 1
+    while r**2 + 1 < n:
+        b = 2
+        while (r+b)**2 < n:
+            b*=2
+        r+= (b//2)
+    return r
