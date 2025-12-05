@@ -2,8 +2,7 @@ from ecc.utils import quad_rec,discfac,divisors
 from ecc.ringclasses import *
 from ecc.lattices import get_cl_reps, check_ssl_gen_qf, bqf_disc, bqf_parents
 from ecc.modularpolynomials import *
-
-from ecc.modulargroup import qf_disc,qf_parents,get_qfs_all,d_to_ssl_cycle_data
+from ecc.modulargroup import *
 
 def j_to_fg(j:int,char = 0):
     if j == 0:
@@ -130,16 +129,47 @@ def trfr_to_js(a:int,p:int):
 
 def trfr_to_models(a:int,p:int):
     d,c = discfac(a**2-4*p)
+    j_to_fg_dict = {}
     models = []
+    # We need a nonsquare mod p 
     ns = p-1
     while ns>1 and quad_rec(ns,p)>0:
         ns-=1
     if d == -3:
-        placeholder = (0,1)
-        models.append(placeholder)
+        fg0 = (0,1)
+        tr0 = trace_frob(fg0,p)
+        if tr0 == a:
+            j_to_fg_dict[0]=fg0
+        elif tr0 == -a:
+            j_to_fg_dict[0] = (0,pow(ns,3,p))
+        else:
+            gn = p-2
+            while pow(gn,p//3,p)==1:
+                gn-=1
+            tr1 = trace_frob((0,gn),p)
+            if tr1 == a:
+                j_to_fg_dict[0] = (0,gn)
+            elif tr1 == -a:
+                j_to_fg_dict[0] = (0,(pow(ns,3,p)*gn)%p)
+            else:
+                tr2 = trace_frob((0,pow(gn,2,p)),p)
+                if tr2 == a:
+                    j_to_fg_dict[0]=(0,pow(gn,2,p))
+                else:
+                    j_to_fg_dict[0] = (0,(pow(ns,3,p)*pow(gn,2,p))%p)
     elif d == -4:
-        placeholder = (1,0)
-        models.append(placeholder)
+        fg0 = (1,0)
+        tr0 = trace_frob(fg0,p)
+        if tr0 == a:
+            j_to_fg_dict[1728%p]=fg0
+        elif tr0 == -a:
+            j_to_fg_dict[1728%p]=(pow(ns,2,p),p)
+        else:
+            tr1 = trace_frob((ns,0),p)
+            if tr1 == a:
+                j_to_fg_dict[1728%p] = (ns,0)
+            else:
+                j_to_fg_dict[1728%p] = (pow(ns,3,p),0)
     elif a %p == 0:
         if p % 3 == 2:
             models+=[(0,1),(0,ns)]
@@ -150,11 +180,16 @@ def trfr_to_models(a:int,p:int):
             fg0 = j_to_fg(j0,p)
             tr0 = trace_frob(fg0,p)
             if tr0 == a:
+                if a == 0:
+                    f0, g0 = fg0
+                    j_to_fg_dict = [fg0,((f0*(ns**2))%p,(g0*(ns**3))%p)]
+                else:
+                    j_to_fg_dict[j0] = fg0
                 models.append(fg0)
-            if tr0 == -a:
+            elif tr0 == -a:
                 f0,g0 = fg0
-                models.append(((f0*(ns**2))%p,(g0*(ns**3))%p))
-    return models
+                j_to_fg_dict[j0]=((f0*(ns**2))%p,(g0*(ns**3))%p)
+    return j_to_fg_dict
 
 
 def trfr_to_aec_data(a:int,p:int):
@@ -185,6 +220,10 @@ def trfr_to_leaves(a:int,p:int):
 
 def get_j_to_qfs_dict(a:int,p:int,j0=None):
     d = a*a-4*p
+    if d in hilb_polys_dict and len(hilb_polys_dict[d])==2:
+        qf = get_qfs_strict(d)[0]
+        j0 = trfr_to_js(a,p)[0]
+        return {j0:qf}
     if d >= 0 or a == 0:
         raise ValueError('a is not a trace of Frobenius of ordinary curve mod p')
     leaves = trfr_to_leaves(a,p)
@@ -233,6 +272,85 @@ def get_j_to_qfs_dict(a:int,p:int,j0=None):
             j_to_qf.update(newassignments)
             c = c//l
     return j_to_qf
+
+
+## Frobenius matrix
+# The following gives a matrix that represents
+# the action of Frobenius on the lattice,
+# relative to the basis 1, tau.
+def frobmat(ap:tuple[int],abc:tuple[int])->Mat2x2:
+    t,p = ap
+    a,b,c = qf_make_prim(abc)
+    df,cf = discfac(t*t-4*p)
+    dt,ct = discfac(b*b-4*a*c)
+    if dt!= df or cf % ct != 0:
+        raise ValueError('incompatible discriminants') 
+    cft = cf // ct
+    trdiff = t+b*cft
+    if trdiff%2 != 0:
+        raise ValueError('Check trace')
+    t0 = trdiff//2
+    return Mat2x2([[t0,-a*c*cft],[cft,t0-b*cft]])
+
+def kernel_gen_cyc(mat:list[list[int]])->dict:
+    m00 = mat[0][0]
+    m01 = mat[0][1]
+    m10 = mat[1][0]
+    m11 = mat[1][1]
+    l = m00*m11 - m01*m10
+    l0 = gcd(gcd(m00,l),gcd(m01,l))
+    l1 = gcd(gcd(m10,l),gcd(m11,l))
+    if gcd(l0,l1)>1:
+        return 'Check gcds'
+    n0 = hall_multiplier(l0,l)
+    # Multiplying u by n0 gives us a point that generates a subgroup
+    # of index l0c; the order of the point is l/l0c
+    l0c = n0*l0
+    # We need a point of order l0c, and index l/l0c
+    # We already have a point of order l/l1
+    n1 = l//(l0c*l1)
+    # v already has order l/l1
+    # (l/l1) *v = 0, so (l/l1)/(l0c) will have order l0c
+    xg = -(n0*m01+n1*m11)%l
+    yg = (n0*m00+n1*m10)%l
+    # Note that gcd(xg,yg, l) should now be equal to 1.
+    # If gcd(xg,yg) is not 1, we can factor it out
+    gxy = gcd(xg,yg)
+    if gcd(gxy,l)!= 1:
+        return 'Something went wrong'
+    if gxy == 0:
+        return 'Something wrong'
+    return {(xg//gxy,yg//gxy):l}
+
+
+def divide_cyclic_gen(gen:dict,m:int)->dict:
+    v = [v for v in gen][0]
+    l = gen[v]
+    x,y = v
+    if gcd(x,y)>1:
+        g =gcd(x,y)
+        if gcd(g,l)>1:
+            return'The generator has the wrong order'
+        v = x//g, y//g
+        x,y = v
+    v1 = (l*x)%(l*m),(l*y)%(l*m) 
+    r,s = axby(v1)
+    w = ((l*s) %(l*m),(l*r)%(l*m))
+    return {v:m*l,w:m}
+
+# MW generators
+def mw_gens(ap:tuple[int],abc:tuple[int],n:int)->dict:
+    fmat = frobmat(ap,abc)
+    cmat,m = (fmat**n - (fmat**0)).gcdfac()
+    cmat = Mat2x2(cmat.mat)
+    if abs(cmat.det) == 1:
+        return {(1,0):m,(0,1):m}
+    elif m == 1:
+        return kernel_gen_cyc(cmat.mat)
+    else:
+        return divide_cyclic_gen(kernel_gen_cyc(cmat.mat),m)
+
+    
 
 
 
@@ -362,22 +480,6 @@ def get_funct_bij(a:int,p:int):
 
     
 
-
-
-class IsogenyClassFp:
-    def __init__(self,a:int,p:int):
-        self.char = p
-        self.trace_frob = a
-        self.disc = a**2-4*p
-        d,c = discfac(self.disc)
-        self.fundisc = d
-        self.cond = c
-        self.fgs = trfr_to_models(a,p)
-        self.jinvs = trfr_to_js(a,p)
-        self.qfs = get_cl_reps(self.disc)
-        self.j_to_qf_dict = get_j_to_qfs_dict(a,p)
-        self.is_supersingular = (a%p==0)
-        self.card = p-a+1
 
 
 

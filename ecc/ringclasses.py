@@ -1,8 +1,34 @@
-from ecc.utils import get_rou_mod, gcd, gcd_list
+from ecc.utils import get_rou_mod, gcd, gcd_list, hall_multiplier, axby
 
 ############
 # Matrices #
 ############
+
+def shape(m:list[list[int]]):
+    d2s = list({len(r) for r in m})
+    if len(d2s)>1:
+        raise ValueError('Not a matrix')
+    d2 = d2s[0]
+    return (len(m),d2)
+
+def dot(v1:list,v2:list):
+    if len(v1)!=len(v2):
+        raise ValueError('Vectors must be of equal dimension')
+    return sum({x*y for x,y in zip(v1,v2)})
+
+
+def mat_mul(m1,m2):
+    d0,d1 = shape(m1)
+    d2,d3 = shape(m2)
+    if d1 != d2:
+        raise ValueError('Incompatible matrices')
+    mprod = [[_ for _ in range(d3)] for _ in range(d0)]
+    for i, r in enumerate(m1):
+        for j in range(d3):
+            cj = [r2[j] for r2 in m2]
+            mprod[i][j]=dot(r,cj)
+    return mprod
+
 
 def check_square_matrix(m)->bool:
     s= {len(r) for r in m}
@@ -41,6 +67,34 @@ class IntegerSquareMatrix:
     def __repr__(self):
         return str(self)
     
+    def __eq__(self, other):
+        if not isinstance(other, IntegerSquareMatrix):
+            return False
+        return self.mat == other.mat
+    
+    def to_Mat2x2_class(self):
+        if self.dim == 2:
+            return Mat2x2(self.mat)
+        else:
+            return self
+        
+    def mvec(self,v:list):
+        if len(v)!=self.dim:
+            raise ValueError('Wrong dimension')
+        return [dot(r,v) for r in self.mat]
+    
+    def gcd(self):
+        g_rows = [gcd_list(r) for r in self.mat]
+        return gcd_list(g_rows)
+    
+    def gcdfac(self):
+        m = self.mat
+        d = self.gcd()
+        if d < 2:
+            return self,d
+        return IntegerSquareMatrix([[a//d for a in r] for r in m]),d
+    
+    
     def transpose(self):
         mat = self.mat
         return IntegerSquareMatrix([[r[i] for r in mat] for i in range(len(mat))])
@@ -50,7 +104,20 @@ class IntegerSquareMatrix:
         d = self.dim
         return sum([mat[i][i] for i in range(d)])
     
+    def __rmul__(self,n:int):
+        if not isinstance(n,int):
+            return self*n
+        mat = self.mat
+        return IntegerSquareMatrix([[x*n for x in r] for r in mat])
+    
+    def __neg__(self):
+        return (-1)*self
+    
     def __add__(self,other:IntegerSquareMatrix):
+        if isinstance(other,int):
+            one = IntegerSquareMatrix([[int(i==j) for i in range(self.dim)]
+                                       for j in range(self.dim)])
+            other = other*one
         if not isinstance(other,IntegerSquareMatrix):
             raise ValueError('Can only add matrices')
         m = self.dim
@@ -65,6 +132,10 @@ class IntegerSquareMatrix:
         return IntegerSquareMatrix(matsum)
     
     def __mul__(self,other:IntegerSquareMatrix):
+        if isinstance(other,int):
+            one = IntegerSquareMatrix([[int(i==j) for i in range(self.dim)]
+                                       for j in range(self.dim)])
+            other = other*one
         if not isinstance(other,IntegerSquareMatrix):
             raise ValueError('Can only multiply square matrices')
         m = self.dim
@@ -91,11 +162,7 @@ class IntegerSquareMatrix:
             n = n //2
         return mn
     
-    def __rmul__(self,n:int):
-        if not isinstance(n,int):
-            return self*n
-        mat = self.mat
-        return IntegerSquareMatrix([[x*n for x in r] for r in mat])
+    
     
     def __sub__(self,other:IntegerSquareMatrix)->IntegerSquareMatrix:
         return self+(-1)*other
@@ -106,6 +173,8 @@ class IntegerSquareMatrix:
         for c in coefs_x0_to_xn[::-1]:
             polymat = self*polymat+c*one
         return polymat
+
+
 
 def poly2mat(coefs_x0to_xn1:list[int]):
     dim = len(coefs_x0to_xn1)
@@ -304,6 +373,64 @@ class PolyFp(Polynomial):
     def find_roots_BrFo(self):
         p = self.char
         return [x for x in range(p) if self.eval(x)==0]
+
+
+
+
+    
+class Mat2x2(IntegerSquareMatrix):
+    def __init__(self,mat):
+        if shape(mat)!=(2,2):
+            raise ValueError('Not a 2x2 matrix')
+        super().__init__(mat)
+        a,b,c,d = mat[0][0],mat[0][1],mat[1][0],mat[1][1]
+        self.abcd = a,b,c,d
+        self.det = a*d-b*c
+        self.tr = a+d
+        self.char_poly = Polynomial([self.det,-self.tr,1])
+
+    def adjugate(self):
+        return self.tr * Mat2x2([[1,0],[0,1]])-self
+    
+    def kernel_gens(self):
+        if abs(self.det)==1:
+            return {(0,0):1}
+        if self.det == 0:
+            raise ValueError('Use regular kernel')
+        m0,gm = self.gcdfac()
+        if abs(m0.det)==1:
+            return {(1,0):gm,(0,1):gm}
+        a,b,c,d = m0.abcd
+        l = m0.det
+        l0 = gcd_list([a,b,l])
+        l1 = gcd_list([c,d,l])
+        n0 = hall_multiplier(l0,l)
+        # Multiplying u by n0 gives us a point that generates a subgroup
+        # of index l0c; the order of the point is l/l0c
+        l0c = n0*l0
+        # We need a point of order l0c, and index l/l0c
+        # We already have a point of order l/l1
+        n1 = l//(l0c*l1)
+        # v already has order l/l1
+        # (l/l1) *v = 0, so (l/l1)/(l0c) will have order l0c
+        xg = -(n0*b+n1*d)%l
+        yg = (n0*a+n1*c)%l
+        # Note that gcd(xg,yg, l) should now be equal to 1.
+        # If gcd(xg,yg) is not 1, we can factor it out
+        gxy = gcd(xg,yg)
+        if gcd(gxy,l)!= 1:
+            return 'Something went wrong'
+        if gxy == 0:
+            return 'Something wrong'
+        x,y = xg//gxy,yg//gxy
+        v = (x,y)
+        v1 = ((l*x)%(l*gm),(l*y)%(l%gm))
+        r,s = axby(v1)
+        w = ((l*s)%(l*gm),(l*r)%(l*gm))
+        return {v:gm*l,w:gm}
+
+
+        
 
 
 
