@@ -392,44 +392,6 @@ class Mat2x2(IntegerSquareMatrix):
     def adjugate(self):
         return self.tr * Mat2x2([[1,0],[0,1]])-self
     
-    def kernel_gens(self):
-        if abs(self.det)==1:
-            return {(0,0):1}
-        if self.det == 0:
-            raise ValueError('Use regular kernel')
-        m0,gm = self.gcdfac()
-        if abs(m0.det)==1:
-            return {(1,0):gm,(0,1):gm}
-        a,b,c,d = m0.abcd
-        l = m0.det
-        l0 = gcd_list([a,b,l])
-        l1 = gcd_list([c,d,l])
-        n0 = hall_multiplier(l0,l)
-        # Multiplying u by n0 gives us a point that generates a subgroup
-        # of index l0c; the order of the point is l/l0c
-        l0c = n0*l0
-        # We need a point of order l0c, and index l/l0c
-        # We already have a point of order l/l1
-        n1 = l//(l0c*l1)
-        # v already has order l/l1
-        # (l/l1) *v = 0, so (l/l1)/(l0c) will have order l0c
-        xg = -(n0*b+n1*d)%l
-        yg = (n0*a+n1*c)%l
-        # Note that gcd(xg,yg, l) should now be equal to 1.
-        # If gcd(xg,yg) is not 1, we can factor it out
-        gxy = gcd(xg,yg)
-        if gcd(gxy,l)!= 1:
-            return 'Something went wrong'
-        if gxy == 0:
-            return 'Something wrong'
-        x,y = xg//gxy,yg//gxy
-        v = (x,y)
-        v1 = ((l*x)%(l*gm),(l*y)%(l%gm))
-        r,s = axby(v1)
-        w = ((l*s)%(l*gm),(l*r)%(l*gm))
-        return {v:gm*l,w:gm}
-
-
         
 
 

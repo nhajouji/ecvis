@@ -124,8 +124,14 @@ def j0_to_j1s_in_sslcycs(j0:int,p:int):
     return j1s
     
 def trfr_to_js(a:int,p:int):
-    return [j for j in range(1,p) if 
+    js= [j for j in range(1,p) if 
             (j-1728)%p!=0 and abs(trace_frob(j_to_fg(j),p))==abs(a)]
+    d = discfac(a*a-4*p)[0]
+    if d==-3 or (d%p == 0 and p % 3 == 2):
+        js.append(0)
+    if d == -4 or (d % p == 0 and p % 4 == 3):
+        js.append(1728%p)
+    return js
 
 def trfr_to_models(a:int,p:int):
     d,c = discfac(a**2-4*p)
@@ -290,7 +296,7 @@ def frobmat(ap:tuple[int],abc:tuple[int])->Mat2x2:
     if trdiff%2 != 0:
         raise ValueError('Check trace')
     t0 = trdiff//2
-    return Mat2x2([[t0,-a*c*cft],[cft,t0-b*cft]])
+    return IntegerSquareMatrix([[t0,-a*c*cft],[cft,t0-b*cft]])
 
 def kernel_gen_cyc(mat:list[list[int]])->dict:
     m00 = mat[0][0]
