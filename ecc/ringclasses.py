@@ -77,7 +77,7 @@ class IntegerSquareMatrix:
             return Mat2x2(self.mat)
         else:
             return self
-        
+                
     def mvec(self,v:list):
         if len(v)!=self.dim:
             raise ValueError('Wrong dimension')

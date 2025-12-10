@@ -1,6 +1,5 @@
 from ecc.utils import quad_rec,discfac,divisors
 from ecc.ringclasses import *
-from ecc.lattices import get_cl_reps, check_ssl_gen_qf, bqf_disc, bqf_parents
 from ecc.modularpolynomials import *
 from ecc.modulargroup import *
 
@@ -360,135 +359,6 @@ def mw_gens(ap:tuple[int],abc:tuple[int],n:int)->dict:
 
 
 
-################
-## Delete Soon #
-################
-def get_functorial_bij_leaves(a:int,p:int,j0=None):
-    d = a**2-4*p
-    if d == -3:
-        return {0:(1,1,1)}
-    elif d== -4:
-        return {(1728%p):(1,0,1)}
-    leaves = trfr_to_leaves(a,p)
-    if j0 == None:
-        j0 = leaves[0]
-    else:
-        if j0 not in leaves:
-            raise ValueError('j0 is not a suitable j-invariant')
-    fpdata = {j0:all_ssl_cycles_from_jp(j0,p)}
-    qfs = [qf for qf in get_cl_reps(d) if bqf_disc(qf)==d]
-    qf0 = qfs.pop(0)
-    j_to_qf = {j0:qf0}
-    leaves = [j for j in leaves if j!= j0]
-    qf_data = check_ssl_gen_qf(d)
-    if qf_data['Solved']:
-        ls = [l0 for l0 in qf_data if isinstance(l0,int)]
-        l = ls[0]
-        cyc_0 = qf_data[l]
-        cyc_p_all = all_ssl_cycles_from_jp(j0,p)
-        if l not in cyc_p_all or len(cyc_0)!= len(cyc_p_all[l]):
-            return {'Status':'Contradiction?',
-                    'j_to_qf':j_to_qf,
-                    'js_unclass':leaves,
-                    'qfs_unclass':qfs}
-        else:
-            cyc_p_l = cyc_p_all[l]
-            for i, j in enumerate(cyc_p_l):
-                j_to_qf[j]=cyc_0[i]
-            return {'Status':'Solved',
-                    'j_to_qf':j_to_qf,
-                    'js_unclass':[j for j in leaves if j not in j_to_qf],
-                    'qfs_unclass':[qf for qf in qfs if qf not in j_to_qf.values()]}
-    ## Find a cycle of max length
-    ### First, make sure we got some cycle with ss level
-    if len(qf_data)<2:
-        return {'Status':'No information from ss isogs',
-                    'j_to_qf':j_to_qf,
-                    'js_unclass':[j for j in leaves if j not in j_to_qf],
-                    'qfs_unclass':[qf for qf in qfs if qf not in j_to_qf.values()]}
-    # compute the lengths of each cycle
-    qf_l_to_cyclen = {l:len(qf_data[l][0]) for l in qf_data if isinstance(l,int)}
-    mlen = max(qf_l_to_cyclen.values())
-    l0 = min([l for l in qf_l_to_cyclen if qf_l_to_cyclen[l]==mlen])
-    cyc_0 = qf_data[l0][0]
-    cyc_p_all = fpdata[j0]
-    if l0 in fpdata[j0] and len(fpdata[j0][l0])==len(cyc_0):
-        for i, j in enumerate(fpdata[j0][l0]):
-            j_to_qf[j]=cyc_0[i]
-    ## Dealing with real j-invariants
-    for j1 in j_to_qf:
-        if j1 not in fpdata:
-            fpdata[j1]=all_ssl_cycles_from_jp(j1,p)
-    for l in qf_l_to_cyclen:
-        newassignments = {}
-        for j1 in fpdata:
-            q1 = j_to_qf[j1]
-            if len(qf_data[l][0])==2 and l in fpdata[j1]:
-                cq1s = [c for c in qf_data[l] if q1 in c]
-                j2s = list({j for j in fp_isog_codomains(j1,l,p) 
-                            if j not in j_to_qf and j not in newassignments})
-                if len(cq1s)==1 and len(j2s)==1:
-                    q2 = [q for q in cq1s[0] if q != q1][0]
-                    j2 = j2s[0]
-                    newassignments[j2]=q2
-        j_to_qf.update(newassignments)
-    leaves = [j for j in leaves if j not in j_to_qf]
-    qfs = [qf for qf in qfs if qf not in j_to_qf.values()]
-    if len(leaves)==0:
-        return {'Status':'Solved',
-                    'j_to_qf':j_to_qf,
-                    'js_unclass':[],
-                    'qfs_unclass':qfs}
-    elif len(leaves)==1:
-        jn = leaves[0]
-        qfs = [qf for qf in qfs if qf not in j_to_qf.values()]
-        if len(qfs)==1:
-            qfn = qfs[0]
-            j_to_qf[jn]=qfn
-            return {'Status':'Solved',
-                    'j_to_qf':j_to_qf,
-                    'js_unclass':[],
-                    'qfs_unclass':[]}
-        else:
-            return {'Status':'Contradiction?',
-                    'j_to_qf':j_to_qf,
-                    'js_unclass':leaves,
-                    'qfs_unclass':qfs}
-    else:
-        return {'Status':'Unsolved',
-                    'j_to_qf':j_to_qf,
-                    'js_unclass':[j for j in leaves if j not in j_to_qf],
-                    'qfs_unclass':[qf for qf in qfs if qf not in j_to_qf.values()]}
-
-def get_funct_bij(a:int,p:int):
-    leafdata = get_functorial_bij_leaves(a,p)
-    d, c= discfac(a**2-4*p)
-    if c == 1:
-        return leafdata['j_to_qf']
-    j_to_qf_dic = leafdata['j_to_qf']
-    for l in atkin_polys_dict:
-        while c % l == 0:
-            newassignments = {}
-            for j0 in j_to_qf_dic:
-                j1s = list({j1 for j1 in fp_isog_codomains(j0,l,p) if 
-                            j1 not in j_to_qf_dic and j1 not in newassignments})
-                if len(j1s)==1:
-                    j1 = j1s[0]
-                    q0 = j_to_qf_dic[j0]
-                    q1s = bqf_parents(q0,l)
-                    if len(q1s)==1:
-                        q1 = q1s[0]
-                        newassignments[j1]=q1
-            j_to_qf_dic.update(newassignments)
-            c = c//l
-    return j_to_qf_dic
-
-
-    
-
-
-
-
 def get_endo_disc_cands(fg:tuple[int,int],p)->list[int]:
     j0 = fg_to_j(fg,p)
     hds = supp_in_hilbdb(p)
@@ -572,7 +442,7 @@ def supsingtrace(p,l):
             while c % p == 0:
                 c = c // p
             d0 = d*c*c
-            h = len(get_cl_reps(d0))
+            h = len(get_qfs_all(d0))
             if d % p == 0 or d % l == 0:
                 if d == -3: 
                     if not d3seen:
@@ -609,7 +479,7 @@ def supsingtrace(p,l):
 def x0l_fp_card(p,l):
     card = 0
     if quad_rec(-p,l)==1:
-        card += (len(get_cl_reps(-4*p)))
+        card += (len(get_qfs_all(-4*p)))
     a = 1
     cond0 = []
     cond1728 = []
@@ -618,8 +488,8 @@ def x0l_fp_card(p,l):
         d0,c = discfac(d)
         if c % l == 0:
             d1 = d0*((c//l)**2)
-            card1 = len(get_cl_reps(d))
-            card2 = len(get_cl_reps(d1))
+            card1 = len(get_qfs_all(d))
+            card2 = len(get_qfs_all(d1))
             if d0 == -3:
                 card+=(card1-1)+l*(card2-1)
                 cond0.append(c)
@@ -631,7 +501,7 @@ def x0l_fp_card(p,l):
         else:
             qr = quad_rec(d0,l)
             if qr >=0:
-                card+=(1+qr)*len(get_cl_reps(d))
+                card+=(1+qr)*len(get_qfs_all(d))
         a+=1
     # We ignored ordinary curves j = 0, 1728
     if len(cond0) > 0:

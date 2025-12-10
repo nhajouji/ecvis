@@ -204,6 +204,32 @@ def kernel_gen_cyc(mat:list[list[int]])->dict:
     return {(xg//gxy,yg//gxy):l}
 
 
+def divide_cyclic_gen(gen:dict,m:int)->dict:
+    v = [v for v in gen][0]
+    l = gen[v]
+    x,y = v
+    if gcd(x,y)>1:
+        g =gcd(x,y)
+        if gcd(g,l)>1:
+            return'The generator has the wrong order'
+        v = x//g, y//g
+        x,y = v
+    v1 = (l*x)%(l*m),(l*y)%(l*m) 
+    r,s = axby(v1)
+    w = ((l*s) %(l*m),(l*r)%(l*m))
+    return {v:m*l,w:m}
+
+# MW generators
+def mw_gens(ap:tuple[int],abc:tuple[int],n:int)->dict:
+    fmat = frobmat(ap,abc)
+    cmat,m = (fmat**n - (fmat**0)).gcdfac()
+    if abs(cmat.det()) == 1:
+        return {(1,0):m,(0,1):m}
+    elif m == 1:
+        return kernel_gen_cyc(cmat.data)
+    else:
+        return divide_cyclic_gen(kernel_gen_cyc(cmat.data),m)
+
 def divide_cyclic_gen_v1(gen:dict,m:int)->dict:
     v = [v for v in gen][0]
     l = gen[v]

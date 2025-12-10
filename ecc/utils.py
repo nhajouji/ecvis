@@ -50,6 +50,14 @@ def hall_multiplier(l:int,m:int)->int:
         multiplier*=g
     return multiplier
 
+# Mod p
+
+def mod_sfd(a,m):
+    a = a % m
+    if 2*a > m:
+        a-=m
+    return a
+
 ## Prime factorization
 
 def primefact(n:int)->dict:

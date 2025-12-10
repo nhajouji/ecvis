@@ -1,11 +1,10 @@
-from ecc.utils import gcd,gcd_list,discfac,primesBetween,divisors
+from ecc.utils import gcd,gcd_list,discfac,primesBetween,divisors, mod_sfd
 from ecc.ringclasses import IntegerSquareMatrix
 from ecc.modularpolynomials import *
 
 ###################
 # Quadratic Forms #
 ###################
-
 
 def qf_in_fundom(qf:tuple[int,int,int])->bool:
     a,b,c = qf
@@ -66,27 +65,30 @@ def act_qf(qf:tuple[int,int,int],m:IntegerSquareMatrix):
 
 
 def qf_to_fun_dom(qf:tuple)->tuple:
+    d = qf_disc(qf)
+    if d >=0:
+        raise ValueError('Discriminant must be negative')
     matrix = IntegerSquareMatrix([[1,0],[0,1]])
     while not qf_in_fundom(qf):
         a,b,c = qf
         if a>c:
             m0 = IntegerSquareMatrix([[0,-1],[1,0]])
-            matrix = matrix*m0
+            matrix = m0*matrix
             qf = act_qf(qf,m0)
         elif a < abs(b):
             k = b//(2*a)
             if b % (2*a) >= a:
                 k+=1
             m0 = IntegerSquareMatrix([[1,k],[0,1]])
-            matrix = matrix*m0
+            matrix =  m0*matrix
             qf = act_qf(qf,m0)
         elif a+b==0:
             m0 = IntegerSquareMatrix([[1,-1],[0,1]])
-            matrix = matrix*m0
+            matrix =  m0*matrix
             qf = act_qf(qf,m0)
         elif a==c and b<0:
             m0 = IntegerSquareMatrix([[0,-1],[1,0]])
-            matrix = matrix*m0
+            matrix =  m0*matrix
             qf = act_qf(qf,m0)
         else:
             return qf,matrix
@@ -204,6 +206,31 @@ def d_to_ssl_cycle_data(d:int)->dict:
 ##########
 # X_0(l) #
 ##########
+def minv(m:IntegerSquareMatrix)->IntegerSquareMatrix:
+    return -m+m.trace()
+
+def find_rrep_g0(m:IntegerSquareMatrix,l:int)->IntegerSquareMatrix:
+    reps = gamma_0_coset_reps(l)
+    cands= [m0 for m0 in reps if ((m*minv(m0)).mat)[1][0]%l==0]
+    if len(cands)!=1:
+        raise ValueError('No unique rep')
+    else:
+        return cands[0]
+
+def qf_to_gamma_0_fd(qf:tuple[int,int,int],l:int)->tuple[tuple[int,int,int],IntegerSquareMatrix]:
+    qf0,m = qf_to_fun_dom(qf)
+    if m.mat[1][0]%l == 0:
+        return qf0, m
+    ml = minv(find_rrep_g0(m,l))
+    return act_qf(qf,ml),m*ml
+
+def qf_mod_gamma_0(qf:tuple[int,int,int],l:int)->tuple[int,int,int]:
+    return qf_to_gamma_0_fd(qf,l)[0]
+
+def x0_endos(qf:tuple[int,int,int],l:int)->list[tuple[int,int,int]]:
+    qf0 = qf_mod_gamma(qf)
+    return [qf1 for qf1 in gamma_0_orb(qf0,l) if qf_mod_gamma(fricke_inv(qf1,l))==qf0]
+
 def iso_taus_x0_l(qf,l):
     qf_reps = gamma_0_orb(qf_mod_gamma(qf),l)
     return [qf1 for qf1 in qf_reps if qf_disc(qf1)==qf_disc(qf)]
@@ -214,8 +241,8 @@ def isos_x0_l_all(d,l):
     for qf0 in qfs:
         qf1s = gamma_0_orb(qf0,l)
         for qf1 in qf1s:
-            if qf_mod_gamma(qf1) in qfs:
-                iso_taus[qf0]=qf1
+            if qf_mod_gamma(fricke_inv(qf1,l)) in qfs:
+                iso_taus[qf1]=fricke_inv(qf1,l)
     return iso_taus
 
 

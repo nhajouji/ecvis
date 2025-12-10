@@ -4,7 +4,7 @@ from matplotlib import colormaps
 import matplotlib.pyplot as plt
 import numpy as np
 from ecc.utils import discfac
-from ecc.modulargroup import *
+from ecc.qfs import *
 from ecc.ecfp import mw_gens, get_j_to_qfs_dict,trfr_to_models,frobmat
 from ecc.modularpolynomials import *
 
