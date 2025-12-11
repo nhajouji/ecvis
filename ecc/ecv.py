@@ -118,6 +118,44 @@ def make_both_pics(fg:tuple[int,int],ap:tuple[int,int],abc:tuple[int,int,int],
 
 
 
+##########
+# X_0(l) #
+##########
+
+def modular_curve_patch(p:int,ymx:float):
+    fig, ax = plt.subplots()
+    cmap = mpl.colormaps['gist_rainbow']
+    c0= np.array(cmap(1/(p+2)))
+    c0[-1]=0.3
+    c1 = np.array(cmap((p+1)/(p+2)))
+    c1[-1]=0.3
+    ax.add_patch(mpl.patches.Rectangle((-0.5,0),width=1,height=ymx,facecolor=c0))
+    ax.add_patch(mpl.patches.Circle((0,0),1,facecolor=c1,edgecolor='black'))
+    for m in range(1,(p//2)+1):
+        if m % 2== 0:
+            cm = np.array(cmap((2*m+p)/(2*p+2)))
+        else:
+            cm = np.array(cmap(1-(2*m+p)/(2*p+2)))
+        cm[-1]=0.5
+        cm2 = np.matmul([[0,1,0,0],[0,0,1,0],[1,0,0,0],[0,0,0,1]],cm)
+        ax.add_patch(mpl.patches.Circle((1/(2*m-1),0),1/abs(2*m-1),facecolor=cm,edgecolor='black'))
+        ax.add_patch(mpl.patches.Circle((-1/(2*m-1),0),1/abs(2*m-1),facecolor=cm2,edgecolor='black'))
+    ax.add_patch(mpl.patches.Circle((1/(p),0),1/abs(p),facecolor='white',edgecolor='magenta'))
+    ax.add_patch(mpl.patches.Circle((-1/(p),0),1/abs(p),facecolor='white',edgecolor='magenta'))
+    for m in range(2,(p//2)+1):
+        x = m/(m*m-1)
+        cr = 1/(m*m-1)
+        ax.add_patch(mpl.patches.Circle((x,0),cr,facecolor='white',edgecolor='black'))
+        ax.add_patch(mpl.patches.Circle((-x,0),cr,facecolor='white',edgecolor='black'))
+    ax.set_aspect('equal')
+    ax.set_xlim([-0.5,0.5])
+    ax.set_ylim([0,ymx])
+    ax.axvline(x = -0.5, color = 'black',linestyle='dashed')
+    ax.axvline(x = 0.5, color = 'black',linestyle='dashed')
+    ax.axis('off')
+    return fig, ax
+
+
 class IsogenyClassFp:
     def __init__(self,a:int,p:int):
         self.char = p

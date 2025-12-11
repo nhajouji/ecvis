@@ -227,9 +227,19 @@ def qf_to_gamma_0_fd(qf:tuple[int,int,int],l:int)->tuple[tuple[int,int,int],Inte
 def qf_mod_gamma_0(qf:tuple[int,int,int],l:int)->tuple[int,int,int]:
     return qf_to_gamma_0_fd(qf,l)[0]
 
-def x0_endos(qf:tuple[int,int,int],l:int)->list[tuple[int,int,int]]:
+def qf_x0_endos(qf:tuple[int,int,int],l:int)->list[tuple[int,int,int]]:
     qf0 = qf_mod_gamma(qf)
     return [qf1 for qf1 in gamma_0_orb(qf0,l) if qf_mod_gamma(fricke_inv(qf1,l))==qf0]
+
+def x0_endos_all(p:int)->dict:
+    endos_by_trace = {}
+    a = 0
+    while a*a < 4*p:
+        d = a*a-4*p
+        qfs = get_qfs_all(d)
+        endos_by_trace[a]={qf:qf_x0_endos(qf,p) for qf in qfs}
+        a+=1
+    return endos_by_trace
 
 def iso_taus_x0_l(qf,l):
     qf_reps = gamma_0_orb(qf_mod_gamma(qf),l)
