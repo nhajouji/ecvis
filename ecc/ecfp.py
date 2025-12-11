@@ -1,7 +1,7 @@
 from ecc.utils import quad_rec,discfac,divisors
 from ecc.ringclasses import *
 from ecc.modularpolynomials import *
-from ecc.modulargroup import *
+from ecc.qfs import *
 
 def j_to_fg(j:int,char = 0):
     if j == 0:
