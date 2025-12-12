@@ -10,12 +10,11 @@ from ecc.modularpolynomials import *
 
 
 def n_to_color(n):
-    if n < 10:
-        return colormaps['tab10'](n)
-    elif n < 30:
-        return colormaps['tab20'](n-10)
-    elif n < 70:
-        return colormaps['tab20b'](n-40)
+    n = n %17
+    if n < 9:
+        return colormaps['Set1'](n)
+    else:
+        return colormaps['Dark2'](n-9)
 
 #################
 # MW Group Pics #
@@ -124,7 +123,7 @@ def make_both_pics(fg:tuple[int,int],ap:tuple[int,int],abc:tuple[int,int,int],
 
 def modular_curve_patch(p:int,ymx:float):
     fig, ax = plt.subplots()
-    cmap = mpl.colormaps['gist_rainbow']
+    cmap = mpl.colormaps['Pastel1']
     c0= np.array(cmap(1/(p+2)))
     c0[-1]=0.3
     c1 = np.array(cmap((p+1)/(p+2)))
@@ -154,6 +153,33 @@ def modular_curve_patch(p:int,ymx:float):
     ax.axvline(x = 0.5, color = 'black',linestyle='dashed')
     ax.axis('off')
     return fig, ax
+
+def x0_isogs_data(qflist,l):
+    q_to_c = {}
+    for i,qf in enumerate(qflist):
+        q_to_c[qf_mod_gamma(qf)]=n_to_color(i)
+    iso_qs = {}
+    for q0 in q_to_c:
+        q0_orb = gamma_0_orb(q0,l)
+        for q1 in q0_orb:
+            q2 = qf_mod_gamma(fricke_inv(q1,l))
+            if q2 in q_to_c:
+                iso_qs[q1] = [q_to_c[q0],q_to_c[q2]]
+    return iso_qs
+
+def x0_iso_pic(qflist,l):
+    colordata = x0_isogs_data(qflist,l)
+    taus = np.array([abc_to_tau(qf) for qf in colordata])
+    ymx = max(taus[::,1])
+    fig,ax = modular_curve_patch(l,ymx+0.3)
+    for qf in colordata:
+        c1,c2 = colordata[qf][0],colordata[qf][1]
+        tau = abc_to_tau(qf)
+        x,y = tau[0],tau[1]
+        ax.scatter(x = [x],y=[y],c = [c2],s=[40])
+        ax.scatter(x = [x],y=[y],c = [c1],s=[8])
+    return fig, ax
+        
 
 
 class IsogenyClassFp:
@@ -209,6 +235,78 @@ class IsogenyClassFp:
         ax.legend(loc='lower right', bbox_to_anchor=(-0.6,0))
         return fig, ax
     
+    def x0_pic_pair(self,l):
+        ymax = self.ht_ub
+        ymin = 0
+        xmin = -0.7
+        xmax = 0.7
+        ud = Circle((0,0),1,alpha=0.3,facecolor='gray')
+        fig, axs = plt.subplots(ncols=2,nrows=1,figsize = (4.8,self.ht_ub))
+        q_to_c = {}
+        for i,j in enumerate(self.j_list):
+            qf = self.j_to_qf(j)
+            cj = n_to_color(i)
+            q_to_c[qf]=cj
+            xj = self.qfdata[qf]['tau_arr'][0]
+            yj = self.qfdata[qf]['tau_arr'][1]
+            strj = self.qfdata[qf]['tau_str']
+            axs[0].scatter(x = [xj],y=[yj],c=[cj],label=strj)
+        axs[0].add_patch(ud)
+        axs[0].vlines(x=-0.5,ymin=np.sqrt(3)/2,ymax=ymax)
+        axs[0].vlines(x=0.5,ymin=np.sqrt(3)/2,ymax=ymax)
+        axs[0].set_xlim(xmin,xmax)
+        axs[0].set_ylim(ymin,ymax)
+        axs[0].set_aspect('equal')
+        axs[0].axis('off')
+        axs[0].legend(loc='lower right', bbox_to_anchor=(-0.6,0.5))
+        ##########
+        # X0 pic #
+        ##########
+        isoqs = x0_isogs_data(self.qfs,l)
+        isotaus = [abc_to_tau(qf) for qf in isoqs]
+        if len(isotaus)==0:
+            ymx2 = ymax
+        else:
+            ymx2 = max([xy[1] for xy in isotaus])+0.3
+        cmap = mpl.colormaps['Pastel1']
+        c0= np.array(cmap(1/(l+2)))
+        c0[-1]=0.3
+        c1 = np.array(cmap((l+1)/(l+2)))
+        c1[-1]=0.3
+        axs[1].add_patch(mpl.patches.Rectangle((-0.5,0),width=1,height=ymx2,facecolor=c0))
+        axs[1].add_patch(mpl.patches.Circle((0,0),1,facecolor=c1,edgecolor='black'))
+        for m in range(1,(l//2)+1):
+            if m % 2== 0:
+                cm = np.array(cmap((2*m+l)/(2*l+2)))
+            else:
+                cm = np.array(cmap(1-(2*m+l)/(2*l+2)))
+            cm[-1]=0.5
+            cm2 = np.matmul([[0,1,0,0],[0,0,1,0],[1,0,0,0],[0,0,0,1]],cm)
+            axs[1].add_patch(mpl.patches.Circle((1/(2*m-1),0),1/abs(2*m-1),facecolor=cm,edgecolor='black'))
+            axs[1].add_patch(mpl.patches.Circle((-1/(2*m-1),0),1/abs(2*m-1),facecolor=cm2,edgecolor='black'))
+        axs[1].add_patch(mpl.patches.Circle((1/(l),0),1/abs(l),facecolor='white',edgecolor='magenta'))
+        axs[1].add_patch(mpl.patches.Circle((-1/(l),0),1/abs(l),facecolor='white',edgecolor='magenta'))
+        for m in range(2,(l//2)+1):
+            x = m/(m*m-1)
+            cr = 1/(m*m-1)
+            axs[1].add_patch(mpl.patches.Circle((x,0),cr,facecolor='white',edgecolor='black'))
+            axs[1].add_patch(mpl.patches.Circle((-x,0),cr,facecolor='white',edgecolor='black'))
+        axs[1].set_aspect('equal')
+        axs[1].set_xlim([-0.6,0.6])
+        axs[1].set_ylim([0,ymx2])
+        axs[1].axvline(x = -0.5, color = 'black',linestyle='dashed')
+        axs[1].axvline(x = 0.5, color = 'black',linestyle='dashed')
+        axs[1].axis('off')
+        if len(isoqs)>0:
+            for qf in isoqs:
+                c1 = q_to_c[qf_mod_gamma(qf)]
+                c2 = q_to_c[qf_mod_gamma(fricke_inv(qf,l))]
+                tau = abc_to_tau(qf)
+                x,y = tau[0],tau[1]
+                axs[1].scatter(x = [x],y=[y],c = [c2],s=[40])
+                axs[1].scatter(x = [x],y=[y],c = [c1],s=[8])
+        return fig, axs
+
     def qfs_with_mw_groups(self,k=1):
         if k < 1:
             raise ValueError('Field exponent should be at least 1')
