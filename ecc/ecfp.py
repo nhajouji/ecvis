@@ -1,4 +1,4 @@
-from ecc.utils import quad_rec,discfac,divisors
+from ecc.nt import quad_rec,discfac,divisors
 from ecc.ringclasses import *
 from ecc.modularpolynomials import *
 from ecc.qfs import *
@@ -41,11 +41,13 @@ def fg_to_j(fg:tuple[int,int],char =0):
             jdeninv = pow(jden,-1,char)
             return (jnum*jdeninv)%char
 
-
+## This is a helper function for the next two
 def cubic_qrs(fg:tuple[int,int],p:int)->list[int]:
     f,g = fg
     return [quad_rec((x**3+f*x+g)%p,p) for x in range(p)]
 
+# This returns trace of frobenius, together with the number of points of order 2
+# The extra data is needed for supersingular curves
 def trace_and_2tor(fg:tuple[int,int],p:int)->tuple[int,int]:
     qrs = cubic_qrs(fg,p)
     return -sum(qrs),len([s for s in qrs if s == 0])
@@ -54,6 +56,8 @@ def trace_frob(fg:tuple[int,int],p:int)->int:
     f,g = fg
     return - sum([quad_rec(x**3+f*x+g,p) for x in range(p)])
 
+# Takes a prime as input and returns list of discriminants
+# of all endomorphism rings mod p
 def supp(p:int)->list[int]:
     ds = []
     a = 0
@@ -283,7 +287,7 @@ def get_j_to_qfs_dict(a:int,p:int,j0=None):
 # The following gives a matrix that represents
 # the action of Frobenius on the lattice,
 # relative to the basis 1, tau.
-def frobmat(ap:tuple[int],abc:tuple[int])->Mat2x2:
+def frobmat(ap:tuple[int],abc:tuple[int])->IntegerSquareMatrix:
     t,p = ap
     a,b,c = qf_make_prim(abc)
     df,cf = discfac(t*t-4*p)
@@ -344,11 +348,13 @@ def divide_cyclic_gen(gen:dict,m:int)->dict:
     return {v:m*l,w:m}
 
 # MW generators
+
 def mw_gens(ap:tuple[int],abc:tuple[int],n:int)->dict:
     fmat = frobmat(ap,abc)
     cmat,m = (fmat**n - (fmat**0)).gcdfac()
-    cmat = Mat2x2(cmat.mat)
-    if abs(cmat.det) == 1:
+    cmat = IntegerSquareMatrix(cmat.mat)
+    cdet = cmat[0][0]*cmat[1][1]-cmat[1][0]*cmat[0][1]
+    if abs(cdet) == 1:
         return {(1,0):m,(0,1):m}
     elif m == 1:
         return kernel_gen_cyc(cmat.mat)
@@ -356,9 +362,6 @@ def mw_gens(ap:tuple[int],abc:tuple[int],n:int)->dict:
         return divide_cyclic_gen(kernel_gen_cyc(cmat.mat),m)
 
     
-
-
-
 def get_endo_disc_cands(fg:tuple[int,int],p)->list[int]:
     j0 = fg_to_j(fg,p)
     hds = supp_in_hilbdb(p)
@@ -521,3 +524,10 @@ def x0l_fp_card(p,l):
             else:
                 card += (l+1)//2
     return card
+
+
+
+########################
+# Elliptic curve class #
+########################
+

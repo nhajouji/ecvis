@@ -1,4 +1,4 @@
-from ecc.utils import quad_rec, gcd, hall_multiplier,axby,discfac, primefact
+from ecc.nt import quad_rec, gcd, hall_multiplier,axby,discfac, primefact
 from ecc.modularpolynomials import *
 
 def red_bf(abc:tuple)->bool:

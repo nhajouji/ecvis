@@ -3,7 +3,7 @@ from matplotlib.patches import Polygon,RegularPolygon,Rectangle,Circle
 from matplotlib import colormaps
 import matplotlib.pyplot as plt
 import numpy as np
-from ecc.utils import discfac
+from ecc.nt import discfac
 from ecc.qfs import *
 from ecc.ecfp import mw_gens, get_j_to_qfs_dict,trfr_to_models,frobmat
 from ecc.modularpolynomials import *
@@ -35,7 +35,7 @@ def abc_to_tau_str(abc):
         d = d//4
         b = b//2
         den = den//2
-    num_str = f'sqrt({d})'
+    num_str = f' √{d}'
     if cond > 1:
         num_str = f"{cond}"+num_str
     if b!=0:

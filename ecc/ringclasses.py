@@ -1,4 +1,4 @@
-from ecc.utils import get_rou_mod, gcd, gcd_list, hall_multiplier, axby
+from ecc.nt import get_rou_mod, gcd, gcd_list, hall_multiplier, axby
 
 ############
 # Matrices #
@@ -71,12 +71,6 @@ class IntegerSquareMatrix:
         if not isinstance(other, IntegerSquareMatrix):
             return False
         return self.mat == other.mat
-    
-    def to_Mat2x2_class(self):
-        if self.dim == 2:
-            return Mat2x2(self.mat)
-        else:
-            return self
                 
     def mvec(self,v:list):
         if len(v)!=self.dim:
@@ -376,23 +370,6 @@ class PolyFp(Polynomial):
 
 
 
-
-    
-class Mat2x2(IntegerSquareMatrix):
-    def __init__(self,mat):
-        if shape(mat)!=(2,2):
-            raise ValueError('Not a 2x2 matrix')
-        super().__init__(mat)
-        a,b,c,d = mat[0][0],mat[0][1],mat[1][0],mat[1][1]
-        self.abcd = a,b,c,d
-        self.det = a*d-b*c
-        self.tr = a+d
-        self.char_poly = Polynomial([self.det,-self.tr,1])
-
-    def adjugate(self):
-        return self.tr * Mat2x2([[1,0],[0,1]])-self
-    
-        
 
 
 
