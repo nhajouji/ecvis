@@ -352,8 +352,8 @@ def divide_cyclic_gen(gen:dict,m:int)->dict:
 def mw_gens(ap:tuple[int],abc:tuple[int],n:int)->dict:
     fmat = frobmat(ap,abc)
     cmat,m = (fmat**n - (fmat**0)).gcdfac()
-    cmat = IntegerSquareMatrix(cmat.mat)
-    cdet = cmat[0][0]*cmat[1][1]-cmat[1][0]*cmat[0][1]
+    mat = IntegerSquareMatrix(cmat.mat).mat
+    cdet = mat[0][0]*mat[1][1]-mat[1][0]*mat[0][1]
     if abs(cdet) == 1:
         return {(1,0):m,(0,1):m}
     elif m == 1:
