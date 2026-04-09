@@ -170,6 +170,44 @@ def qf_iso_cycle(qf0:tuple[int,int,int],l:int):
         nextbatch = [qf1 for qf1 in qf_isogenies_hor(qf,l) if qf1 not in cycle]
     return cycle
 
+def qf_iso_cycle_oriented(qf0:tuple[int,int,int],qf1:tuple[int,int,int],l):
+    cycle = qf_iso_cycle(qf0,l)
+    if len(cycle)<2:
+        raise ValueError('No cycle in this degree')
+    if cycle[1]==qf1:
+        return cycle
+    elif cycle[-1]==qf1:
+        return [qf0]+cycle[:0:-1]
+    else:
+        raise ValueError('Forms are not neighbors in the graph')
+    
+def intersect_qf_codoms(qf0,qf1,l0,l1):
+    return [qf2 for qf2 in qf_isogenies_hor(qf0,l0) if qf2 in qf_isogenies_hor(qf1,l1)]
+
+def qf_iso_frame(qf1,qfa,la,lb,lab):
+    intab = intersect_qf_codoms(qf1,qfa,lab,lb)
+    if len(intab)!= 1:
+        raise ValueError(f'Intersection for ab has size {len(intab)}')
+    qfab = intab[0]
+    intb = intersect_qf_codoms(qf1,qfab,lb,la)
+    if len(intb)!= 1:
+        raise ValueError(f'Intersection for b has size {len(intb)}')
+    return intb[0],qfab
+
+def qf_iso_mat_from_frame(qf1,qfa,la,lb,lab):
+    qfb,qfab = qf_iso_frame(qf1,qfa,la,lb,lab)
+    col0 = qf_iso_cycle_oriented(qf1,qfb,lb)
+    col1 = qf_iso_cycle_oriented(qfa,qfab,lb)
+    mat = []
+    for i, qfbi in enumerate(col0):
+        qfabi = col1[i]
+        mat.append(qf_iso_cycle_oriented(qfbi,qfabi,la))
+    return mat
+
+def qf_isomat_ext(mat,l3):
+    return [[qf_iso_cycle(qf,l3)[-1] for qf in row] for row in mat]
+
+
 def d_to_rqf(d:int)->tuple:
     if d >= 0 or (d%4 >1):
         raise ValueError('Input must be a negative discriminant')

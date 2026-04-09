@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from ecc.nt import discfac
 from ecc.qfs import *
-from ecc.ecfp import mw_gens, get_j_to_qfs_dict,trfr_to_models,frobmat
+from ecc.ecfp import mw_gens, get_j_to_qfs_dict,trfr_to_models,frobmat,sig_to_qfs_dict
 from ecc.modularpolynomials import *
 
 
@@ -190,24 +190,23 @@ class IsogenyClassFp:
         d,c = discfac(self.disc)
         self.fundisc = d
         self.cond = c
-        self.fgs = trfr_to_models(a,p)
         self.qfs = get_qfs_all(self.disc)
-        self.j_to_qf_dict = get_j_to_qfs_dict(a,p)
-        self.j_list = [j for j in self.j_to_qf_dict]
+        self.sig_to_qf_dict = sig_to_qfs_dict(a,p)
+        self.sig_list = [j for j in self.sig_to_qf_dict]
         self.is_supersingular = (a%p==0)
         self.card = p-a+1
         self.qfdata = {}
         self.hgt = 1
-        for j in self.j_to_qf_dict:
-            qf = (self.j_to_qf_dict)[j]
-            self.qfdata[qf]= {'j':j,'frob_mat':frobmat((a,p),qf),'fg':self.fgs[j],'tau_arr':abc_to_tau(qf),
+        for j in self.sig_to_qf_dict:
+            qf = (self.sig_to_qf_dict)[j]
+            self.qfdata[qf]= {'sig':j,'frob_mat':frobmat((a,p),qf),'tau_arr':abc_to_tau(qf),
             'tau_str':abc_to_tau_str(qf)}
             self.hgt = max(self.hgt,abc_to_tau(qf)[1])
         self.ht_ub = int((self.hgt+1)//1)
 
 
-    def j_to_qf(self,j0:int):
-        if j0 not in self.j_to_qf_dict:
+    def j_to_qf(self,j0):
+        if j0 not in self.sig_to_qf_dict:
             raise ValueError(f'{j0} not found')
         return (self.j_to_qf_dict)[j0]
     

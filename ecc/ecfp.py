@@ -2,6 +2,84 @@ from ecc.nt import quad_rec,discfac,divisors
 from ecc.ringclasses import *
 from ecc.modularpolynomials import *
 from ecc.qfs import *
+import json
+
+
+with open('ecc/data/ssfp_pc_bij.json', 'r') as f:
+    ssfpdata_raw = json.load(f)
+ss_precomputed_dictionary = {int(p):ssfpdata_raw[p]for p in ssfpdata_raw}
+
+def get_precomputed_ssdict(p):
+    if p not in ss_precomputed_dictionary:
+        raise ValueError(f'No data for p={p}')
+    data = ss_precomputed_dictionary[p]
+    dic = {}
+    for pair in data:
+        js = (pair[0][0],pair[0][1])
+        qf = (pair[1][0],pair[1][1],pair[1][2])
+        dic[js]=qf
+    return dic
+
+def sig_to_qfs_dict(a:int,p:int,j0=None):
+    if a == 0:
+        if p in ss_precomputed_dictionary:
+            return get_precomputed_ssdict(p)
+        else:
+            raise ValueError('No precomputed data for this prime')
+    d = a*a-4*p
+    if d in hilb_polys_dict and len(hilb_polys_dict[d])==2:
+        qf = get_qfs_strict(d)[0]
+        j0 = trfr_to_js(a,p)[0]
+        return {j0:qf}
+    if d >= 0:
+        raise ValueError('a is not a trace of Frobenius of ordinary curve mod p')
+    leaves = trfr_to_leaves(a,p)
+    if j0 == None:
+        j0 = leaves[0]
+    if j0 not in leaves:
+        raise ValueError('j invariant provided does not work')
+    qfdata = d_to_ssl_cycle_data(d)
+    ml = max([len(qfdata[qf]) for qf in qfdata])
+    qf0 = [qf for qf in qfdata if len(qfdata[qf])==ml][0]
+    l0 = [l for l in qfdata[qf0] if isinstance(qfdata[qf0][l],list)][0]
+    qf_cycle = qfdata[qf0][l0]
+    j_cycle = all_ssl_cycles_from_jp(j0,p)[l0]
+    qf_to_j = {}
+    j_to_qf = {}
+    for qj in zip(qf_cycle,j_cycle):
+        qf,j = qj
+        qf_to_j[qf]= j
+        j_to_qf[j]=qf
+    for qf1 in qfdata:
+        j1 = qf_to_j[qf1]
+        for l in qfdata[qf1]:
+            if l !=l0:
+                qf2 = qfdata[qf1][l]
+                j2s = list({j2 for j2 in fp_isog_codomains(j1,l,p) if j2 not in j_to_qf})
+                if len(j2s)==1:
+                    j2 = j2s[0]
+                    qf_to_j[qf2]=j2
+                    j_to_qf[j2]=qf2
+    c= discfac(a**2-4*p)[1]
+    if c == 1:
+        return j_to_qf
+    for l in atkin_polys_dict:
+        while c % l == 0:
+            newassignments = {}
+            for j0 in j_to_qf:
+                j1s = list({j1 for j1 in fp_isog_codomains(j0,l,p) if 
+                            j1 not in j_to_qf and j1 not in newassignments})
+                if len(j1s)==1:
+                    j1 = j1s[0]
+                    q0 = j_to_qf[j0]
+                    q1s = qf_parents(q0,l)
+                    if len(q1s)==1:
+                        q1 = q1s[0]
+                        newassignments[j1]=q1
+            j_to_qf.update(newassignments)
+            c = c//l
+    return j_to_qf
+
 
 def j_to_fg(j:int,char = 0):
     if j == 0:
