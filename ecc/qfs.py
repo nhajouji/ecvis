@@ -328,7 +328,7 @@ def qf_search_lgens(d,lcands):
     ltups_all.sort(key = len)
     lks_gen = [lk for lk in ltups_all if len(set(generate_qfs_from_lks(class_group_id(d),lk)))==cld]
     if len(lks_gen)==0:
-        return 'None found'
+        return []
     ml = min([len(lks) for lks in lks_gen])
     return [lks for lks in lks_gen if len(lks) == ml]
 
