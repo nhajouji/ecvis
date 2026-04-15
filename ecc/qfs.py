@@ -276,9 +276,11 @@ def qf_binary_tree_chains(qf0,lset):
     return chains
 
 
+
 def qf_cyc_data(d,lcands):
+    d0, c = discfac(d)
     qf0 = class_group_id(d)
-    lcands = trim_lcands(d,lcands)
+    lcands = [l for l in lcands if c % l !=0 and quad_rec(d0,l)>=0]
     cycdata = {}
     gens = []
     for l in lcands:
@@ -289,7 +291,7 @@ def qf_cyc_data(d,lcands):
     return cycdata
 
 
-def get_cyc_data_ext(d,lcands):
+def qf_cyc_data_ext(d,lcands):
     cycdata = qf_cyc_data(d,lcands)
     ls = [l for l in cycdata]
     for l in ls:
