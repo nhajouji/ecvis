@@ -107,6 +107,9 @@ def pf_to_divisors(pf:dict)->list:
 def divisors(n):
     return pf_to_divisors(primefact(n))
 
+def no_odd_prime_facs(d):
+    return len([p for p in primefact(abs(d)) if p % 2 == 1])
+
 def quad_gcd(a1:int,a2:int)->int:
     pf2 = primefact(a2)
     a2rt = pf_to_int({p:pf2[p]//2 for p in pf2})
@@ -146,6 +149,15 @@ def jacobi_symbol(d:int,n:int):
         s*=(quad_rec(d,p)**pfn[p])
     return s
 
+def gen_quad_symb(a,b):
+    pf_b = primefact(b)
+    if len(pf_b) == 1 and max(pf_b.values()) == 1:
+        return quad_rec(a,b)
+    s = 1
+    for p in pf_b:
+        if pf_b[p] % 2 == 1:
+            s *= quad_rec(a,p)
+    return s
 # Applications
 
 def class_no_formula(d):
