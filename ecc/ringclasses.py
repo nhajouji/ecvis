@@ -98,6 +98,14 @@ class IntegerSquareMatrix:
         d = self.dim
         return sum([mat[i][i] for i in range(d)])
     
+    def det(self):
+        if self.d!= 2:
+            raise ValueError('Not yet implemented')
+        mat = self.mat
+        a,b,c,d = mat[0][0],mat[0][1],mat[1][0],mat[1][1]
+        return a*d-b*c
+        
+    
     def __rmul__(self,n:int):
         if not isinstance(n,int):
             return self*n

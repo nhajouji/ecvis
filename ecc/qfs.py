@@ -161,6 +161,178 @@ def qf_parents(qf:tuple[int,int,int],l:int):
     d = qf_disc(qf)
     return [qf0 for qf0 in qf_isogenies_all(qf,l) if qf_disc(qf0)>d]
 
+def qf_2_mat(qf):
+    a,b,c = qf
+    return [[0,-c],[a,-b]]
+def mat_2_qf(m):
+    a,b,c,d = m[0][0],m[0][1],m[1][0],m[1][1]
+    s = c//abs(c)
+    return (s*c,s*(a-d),-s*b)
+
+def prod_tup(t):
+    p = 1
+    for x in t:
+        p*=x
+    return p
+
+### Computing isogeny codomains
+def qf_isogs(qf0,l):
+    a,b,c = qf0
+    qfls = []
+    if c % l == 0:
+        qfls.append(qf_mod_gamma((a*l,b,c//l)))
+    for t in range(l):
+        qt = a+b*t+c*t*t
+        if qt % l == 0:
+            at = qt//l
+            bt = (b+2*c*t)
+            ct = c*l
+            qfls.append(qf_mod_gamma((at,bt,ct)))
+    return qfls
+
+# Computing isogeny cycles
+def qf_isog_cycle(qf0,l):
+    cyc = qf_isogs(qf0,l)
+    if len(cyc)==1:
+        return [qf0,cyc[0]]
+    elif len(cyc)>2:
+        raise ValueError('Too many isogenies')
+    cyc = [qf0,cyc[0]]
+    nextbatch = [qf for qf in qf_isogs(cyc[-1],l) if qf not in cyc]
+    while len(nextbatch)>0:
+        cyc.append(nextbatch[0])
+        nextbatch = [qf for qf in qf_isogs(cyc[-1],l) if qf not in cyc]
+    return cyc
+
+def qf_isog_cycle_power(qf0,lk):
+    l,k = lk
+    if k < 0:
+        return qf_sibs(qf0,l)
+    elif k == 0:
+        return [qf0]
+    cyc = qf_isog_cycle(qf0,l)
+    if k == 1:
+        return cyc
+    n = len(cyc)
+    m = gcd(n,k)
+    nm = n//m
+    return [cyc[(k*i) % n] for i in range(nm)]
+
+def qf_sibs(qf0:tuple[int,int,int],l:int):
+    sibs = qf_isogenies_down(qf_parents(qf0,l)[0],l)
+    return [qf0]+[qf for qf in sibs if qf != qf0]
+
+def cycs_from_ancestors(qf0):
+    d, c = discfac(qf_disc(qf0))
+    cycs = {}
+    if c % 2 == 0:
+        sibs = qf_sibs(qf0,2)
+        if len(sibs)>1:
+            cycs[2] = sibs
+    if c % 3 == 0:
+        sibs = qf_sibs(qf0,3)
+        if len(sibs)<4:
+            cycs[3] = sibs
+    return cycs
+
+def generate_qfs_from_ls(qf0,lset):
+    qfs = [qf0]
+    for l in lset:
+        qfls = []
+        for qf in qfs:
+            qfls+=qf_isog_cycle(qf,l)
+        qfs = qfls
+    return qfs
+
+def generate_qfs_from_lks(qf0,lkset):
+    qfs = [qf0]
+    for lk in lkset:
+        qfls = []
+        for qf in qfs:
+            qfls+=qf_isog_cycle_power(qf,lk)
+        qfs = qfls
+    return qfs
+
+def qf_binary_tree(qf0,lset):
+    rows = [[qf0]]
+    for l in lset:
+        lastrow = rows[-1]
+        newrow = []
+        for qf in lastrow:
+            newrow+= qf_isogs(qf,l)
+        rows.append(newrow)
+    return rows
+
+def qf_binary_tree_chains(qf0,lset):
+    chains = [[qf0]]
+    for l in lset:
+        newchains = []
+        for chain in chains:
+            lastqf = chain[-1]
+            qfls = qf_isogs(lastqf,l)
+            for qf in qfls:
+                newchains.append(chain+[qf])
+        chains = newchains
+    return chains
+
+
+def qf_cyc_data(d,lcands):
+    qf0 = class_group_id(d)
+    lcands = trim_lcands(d,lcands)
+    cycdata = {}
+    gens = []
+    for l in lcands:
+        cycl = qf_isog_cycle(qf0,l)
+        if len(cycl)>1 and cycl[1] not in gens and cycl[-1] not in gens:
+            cycdata[l] = len(cycl)
+            gens.append(cycl[1])
+    return cycdata
+
+
+def get_cyc_data_ext(d,lcands):
+    cycdata = qf_cyc_data(d,lcands)
+    ls = [l for l in cycdata]
+    for l in ls:
+        for k in divisors(cycdata[l])[:-1]:
+            cycdata[(l,k)] = cycdata[l]//k
+    anc_data= cycs_from_ancestors(class_group_id(d))
+    for l in anc_data:
+        cycdata[(l,-1)]=len(anc_data[l])
+    return {l:cycdata[l] for l in cycdata if type(l)==tuple}
+
+def subs_w_prod(lscores:dict,target:int):
+    incomp = {():1}
+    complete = []
+    for l in lscores:
+        newdata = {}
+        for lt in incomp:
+            ltx = tuple(list(lt)+[l])
+            n_ltx= lscores[l]*incomp[lt]
+            if n_ltx == target:
+                complete.append(ltx)
+            elif n_ltx<target:
+                newdata[ltx] = n_ltx
+        incomp.update(newdata)
+    return complete
+
+def qf_search_lgens(d,lcands):
+    cycdata = qf_cyc_data_ext(d,lcands)
+    cld = len(get_qfs_strict(d))
+    if cld in cycdata.values():
+        return [(l,) for l in cycdata if cycdata[l]==cld]
+    ltups_all = subs_w_prod(cycdata,cld)
+    # Get rid of combinations that involve the same prime multiple times
+    ltups_all= [lks for lks in ltups_all if len(lks)==len(set([lk[0] for lk in lks]))]
+    ltups_all.sort(key = len)
+    lks_gen = [lk for lk in ltups_all if len(set(generate_qfs_from_lks(class_group_id(d),lk)))==cld]
+    if len(lks_gen)==0:
+        return 'None found'
+    ml = min([len(lks) for lks in lks_gen])
+    return [lks for lks in lks_gen if len(lks) == ml]
+
+####
+# TODO: Replace qf_iso_cycle below with qf_isog_cycle
+
 def qf_iso_cycle(qf0:tuple[int,int,int],l:int):
     cycle = []
     nextbatch = [qf0]
