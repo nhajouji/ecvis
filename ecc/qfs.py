@@ -1,4 +1,4 @@
-from ecc.nt import gcd,gcd_list,discfac,primesBetween,divisors, mod_sfd
+from ecc.nt import gcd,gcd_list,discfac,primesBetween,divisors, mod_sfd,quad_rec
 from ecc.ringclasses import IntegerSquareMatrix
 from ecc.modularpolynomials import *
 
