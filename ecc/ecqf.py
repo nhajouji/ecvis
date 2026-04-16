@@ -101,14 +101,14 @@ def qf_lset_or_chains(d,lks,lcands):
 def qf_l_gen_search(d,lcands,md=None):
     cld = clgr_size_gen(d)
     if abs(d)<13 or cld==1:
-        return {'ls':(),'Success':True,'Type':0,'needs_orientation':False}
+        return {'ls':(),'Success':True,'Type':0,'ns':(1,),'needs_orientation':False}
     cycdata = qf_cyc_data_ext(d,lcands)
     if md == None:
         md = len(cycdata)
     if cld in cycdata.values():
         lgs = [lk for lk in cycdata if cycdata[lk]==cld]
         lgs.sort(key = lambda lk:lk[0])
-        return {'ls':(lgs[0],),'Success':True,'Type':1,'needs_orientation':False}
+        return {'ls':(lgs[0],),'Success':True,'Type':1,'ns':(cld,),'needs_orientation':False}
     # We don't have a cyclic group, so we will need multiple generators
     # Before looking for a generating set we determine whether we will also
     # need an orientation
@@ -126,17 +126,18 @@ def qf_l_gen_search(d,lcands,md=None):
                     if lks1_score == actual_score:
                         newdata[tuple(lks1_l)]=lks1_score
                         if lks1_score == cld:
+                            ntup = tuple([cycdata[lk] for lk in lks1_l])
                             # We have a generating set! 
                             # Now just check orientation
                             if not need_or:
-                                return {'ls':tuple(lks1_l),'Success':True,'Type':2,'needs_orientation':False}
+                                return {'ls':tuple(lks1_l),'Success':True,'ns':ntup,'Type':2,'needs_orientation':False}
                             chains = qf_lk_chains(d,lks1_l)
                             if len(chains)>0:
-                                return {'ls':tuple(lks1_l),'Success':True,'Type':3,'needs_orientation':True,'Chain':chains[0]}
+                                return {'ls':tuple(lks1_l),'Success':True,'ns':ntup,'Type':3,'needs_orientation':True,'Chain':chains[0]}
                             # Can either let algorithm continue to run or pass to a simplified algorithm -
                             # we now know that we have more than 1 generator of order > 2, and we know size of gen set, etc.
                             else:
-                                return {'ls':tuple(lks1_l),'Success':False,'Type':3,'needs_orientation':True,'Chain':None}
+                                return {'ls':tuple(lks1_l),'Success':False,'ns':ntup,'Type':3,'needs_orientation':True,'Chain':None}
         if len(newdata)>0:
             lks_scores = newdata
         else:
