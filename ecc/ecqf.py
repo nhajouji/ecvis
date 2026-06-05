@@ -32,6 +32,33 @@ ecqf_ord_256_pc = {strtup_to_tup(aps):{int(ns):tuple(ecqf_ord_pcbij_4to256_loade
                                        for ns in ecqf_ord_pcbij_4to256_loaded[aps]} 
                                        for aps in ecqf_ord_pcbij_4to256_loaded}
 
+##############
+# Misc tools #
+##############
+def sortpair(ls,ns):
+    assert len(ls)==len(ns)
+    pairs = [(ls[i],ns[i]) for i in range(len(ls))]
+    pairs.sort(key = lambda ln:ln[1],reverse = True)
+    return tuple([ln[0] for ln in pairs]),tuple([ln[1] for ln in pairs])
+
+def ext_tup(t,x):
+    return tuple(list(t)+[x])
+
+def invert_dict(dict):
+    return {dict[x]:x for x in dict}
+
+
+# Given two dictionaries with the same keys, returns
+# a dictionary whose keys are keys of dict, and values are keys of second dict
+def compdiv_dics(dic1:dict,dic2:dict)->dict:
+    if len(dic1)!=len(dic2):
+        raise ValueError('Dictionaries must have same size')
+    common_elts = {d for d in dic1 if d in dic2}
+    if len(common_elts)<len(dic1):
+        raise ValueError('Dictionaries should have same keys')
+    dic1inv = {dic1[x]:x for x in dic1}
+    return {y:dic2[dic1inv[y]] for y in dic1inv}
+
 ###########################
 # Obtaining generating ls #
 ###########################
@@ -390,23 +417,36 @@ def get_ancestor_data_ord(ap):
         leaf_cands = [j for j in leaf_cands if len(nbrs_l[j])==1]
     return {'ancestor_data':anc_data,'leaves':leaf_cands,'js_all':js}
 
-def compute_ecqf_bij_ord_n2_leaves(ap,leaves=None,lcands = ssprimes):
+
+
+
+
+##########################################
+# Leaf Bij. algorithms for special cases #
+##########################################
+
+###############
+# (n,2,2,2..) #
+###############
+
+def ecqf_ord_n2_bij_leaves(ap,vertical_iso_data=None,ldata = None):
     a,p = ap
-    if a == 0 or a**2 > 4*p:
-        raise ValueError('use different trace')
+    if a == 0:
+        raise ValueError('Use supersingular algorithm')
     d = a*a-4*p
-    if leaves == None:
+    if vertical_iso_data == None:
         vertical_iso_data = get_ancestor_data_ord(ap)
-        leaves = [j for j in vertical_iso_data['leaves'] if j*(j-1728)%p!=0]
+    leaves = [j for j in vertical_iso_data['leaves'] if j*(j-1728)%p!=0]
     if len(leaves)<4:
         # Any bijection works 
-        # Will return a random one to avoid weird issues with j = 0,1728
+        # Will return a random one to avoid dealing with weird issues with descendents of j = 0,1728
         qfs = get_qfs_strict(d)
         assert len(qfs)== len(leaves)
         return {ji:qfs[i] for i,ji in enumerate(leaves)}
     j0 = leaves[0]
     # Look up degrees that are guaranteed to give connected graph
-    ldata = disc_rig_ssl_search(d)
+    if ldata == None:
+        ldata = disc_rig_ssl_search(d)
     if ldata['needs_sum']:
         raise ValueError('Use different algorithm')
     j_to_qf = {j0:class_group_id(d)}
@@ -429,7 +469,198 @@ def compute_ecqf_bij_ord_n2_leaves(ap,leaves=None,lcands = ssprimes):
             qf_to_j[qf1] = j1
     return j_to_qf
 
-    
+
+# Will replace previous with something built out of next function #
+
+def ecqf_ord_n2_grdics(ap,ldata = None,ancdata = None):
+    a,p = ap
+    if a == 0:
+        raise ValueError('Use ss alg')
+    d = a*a-4*p
+    if ldata == None:
+        ldata = disc_rig_ssl_search(d)
+        if type(ldata)!=dict or ldata['needs_sum']:
+            raise ValueError('Need rig basis, use diff alg')
+    ls = ldata['ls']
+    ns = ldata['ns']
+    if len(ns)>1 and max(ns[1:])>2:
+        ls,ns = sortpair(ls,ns)
+        if max(ns[1:])>2:
+            raise ValueError('Multiple generators of order greater than 2')
+    if ancdata == None:
+        ancdata = get_ancestor_data_ord(ap)
+    j0 = ancdata['leaves'][0]
+    qf0 = class_group_id(d)
+    if len(ls)==0:
+        return {():(j0,qf0)}
+    jcyc0 = fp_isog_cycle((j0,p),ls[0])
+    qfcyc0 = qf_isog_cycle(qf0,ls[0])
+    t_to_pairs = {}
+    assert len(jcyc0)==len(qfcyc0)
+    for i in range(len(jcyc0)):
+        t_to_pairs[(i,)]=(jcyc0[i],qfcyc0[i])
+    for l in ls[1:]:
+        newdic = {}
+        for t in t_to_pairs:
+            jt,qft = t_to_pairs[t]
+            jcyct =  fp_isog_cycle((jt,p),l)
+            qfcyct = qf_isog_cycle(qft,l)
+            for x in [0,1]:
+                newdic[ext_tup(t,x)]=(jcyct[x],qfcyct[x])
+        t_to_pairs =newdic
+    return newdic
+
+#####################
+# (n,m) with n,m >2 #
+# ###################
+
+### Quadratic form (n,m) algorithms ###
+
+
+def qf_oriented_cycle(qfs12:tuple[tuple[int]],l:int):
+    qf1,qf2 = qfs12
+    cycle = qf_isog_cycle(qf1,l)
+    if len(cycle)<2:
+        return []
+    if cycle[1]==qf2:
+        return cycle
+    elif cycle[-1]==qf2:
+        cycle_tail = cycle[1:]
+        cycle = [cycle[0]]+cycle_tail[::-1]
+        return cycle
+    else:
+        return []
+
+def qf_l123_trios(qf0:tuple[int,int,int],l123:tuple[int,int,int])->list[tuple[int,int,int]]:
+    l1,l2,l3 = l123
+    qfs_l1 = qf_isogs_hor(qf0,l1)
+    qfs_l2 = qf_isogs_hor(qf0,l2)
+    qfs_l3 = qf_isogs_hor(qf0,l3)
+    qftrios = []
+    for qf1 in qfs_l1:
+        qf1_l2_qfs = qf_isogs_hor(qf1,l2)
+        for qf2 in qfs_l2:
+            qfs_l123 = [qf for qf in qf_isogs_hor(qf2,l1) if qf in qf1_l2_qfs and qf in qfs_l3]
+            if len(qfs_l123)>0:
+                qftrios.append([qf1,qf2,qfs_l123[0]])
+    return qftrios
+
+
+def qf_l12_page(qf0,l12,qf123):
+    l1,l2 = l12
+    qf1,qf2,qf3 = tuple(qf123)
+    row1 = qf_oriented_cycle((qf0,qf1),l1)
+    row2 = qf_oriented_cycle((qf2,qf3),l1)
+    n1 = len(row1)
+    assert len(row2)==n1
+    page = {}
+    for i1 in range(n1):
+        qfi1 = row1[i1]
+        qfi2 = row2[i1]
+        coli = qf_oriented_cycle((qfi1,qfi2),l2)
+        for i2,qf in enumerate(coli):
+            page[(i1,i2)] = qf
+    return page
+
+def qf_nn_page_from_ldata(d,ldata):
+    if len(ldata['ls'])!= 2:
+        raise ValueError('Use diff alg')
+    l1, l2 = ldata['ls']
+    if ldata['l_sum'] == None:
+        raise ValueError('Use diff alg')
+    l3 = ldata['l_sum']
+    qf0 = class_group_id(d)
+    trios_all = qf_l123_trios(qf0,(l1,l2,l3))
+    if len(trios_all)==0:
+        raise ValueError('No trios found')
+    qf123 = trios_all[0]
+    return qf_l12_page(qf0,(l1,l2),qf123)
+
+### Fp (n,m) algorithms ###
+
+def fp_oriented_cycle(j12,p,l):
+    j1,j2 = j12
+    cyc = fp_isog_cycle((j1,p),l)
+    if len(cyc)<2:
+        raise ValueError('No cycle')
+    if cyc[1]==j2:
+        return cyc
+    elif cyc[-1]==j2:
+        tail = cyc[1:]
+        cyc = [cyc[0]]+tail[::-1]
+        return cyc
+    else:
+        raise ValueError('Incompatible orientation')
+
+def ecfp_l123_bases(j0,p,l123):
+    l1,l2,l3 = l123
+    js_l1 = fp_isog_codomains(j=j0,p=p,l=l1)
+    js_l2 = fp_isog_codomains(j=j0,p=p,l=l2)
+    js_l3 = fp_isog_codomains(j=j0,p=p,l=l3)
+    jtrios = []
+    for j1 in js_l1:
+        j1_l2js = fp_isog_codomains(j=j1,p=p,l=l2)
+        for j2 in js_l2:
+            js_123 = [j for j in fp_isog_codomains(j=j2,p=p,l=l1) if j in j1_l2js and j in js_l3]
+            if len(js_123)>0:
+                jtrios.append([j1,j2,js_123[0]])
+    return jtrios
+
+def ecfp_l123_page(j0,p,l123):
+    l1,l2,l3 = l123
+    trios = ecfp_l123_bases(j0,p,l123)
+    if len(trios)== 0:
+        raise ValueError('No basis found')
+    trio = trios[0]
+    j1,j2,j3 = tuple(trio)
+    row1 = fp_oriented_cycle((j0,j1),p,l1)
+    row2 = fp_oriented_cycle((j2,j3),p,l1)
+    n1 = len(row1)
+    assert len(row2)==n1
+    page = {}
+    for i1 in range(n1):
+        ji1 = row1[i1]
+        ji2 = row2[i1]
+        coli = fp_oriented_cycle((ji1,ji2),p,l2)
+        for i2,j in enumerate(coli):
+            page[(i1,i2)] = j
+    return page
+
+### Main Computation ###
+
+def ecqf_ord_nn_grdics(ap,ldata = None,ancdata = None):
+    a,p = ap
+    d = a*a-4*p
+    if a == 0:
+        raise ValueError('Use supersingular alg')
+    if ldata == None:
+        ldata = disc_rig_ssl_search(d)
+    if ldata['l_sum'] == None:
+        raise ValueError('Need rig data for this alg, none available')
+    ls = ldata['ls']
+    if len(ls) != 2:
+        raise ValueError('Use diff algo')
+    l1,l2 = ls
+    l3 = ldata['l_sum']
+    if ancdata == None:
+        ancdata = get_ancestor_data_ord(ap)
+    j0 = ancdata['leaves'][0]
+    j_dic = ecfp_l123_page(j0,p,(l1,l2,l3))
+    qf_dic = qf_nn_page_from_ldata(d,ldata)
+    return j_dic,qf_dic
+
+def ecqf_ord_nn_bij_leaves(ap,ldata = None,ancdata = None):
+    j_dic,qf_dic = ecqf_ord_nn_grdics(ap,ldata,ancdata)
+    return compdiv_dics(j_dic,qf_dic)
+
+
+########################
+# End-to-end algorithm #
+########################
+
+# Given a bijection of leaves and ancestor data over Fp,
+# this extends the bijection to the whole isogeny class
+
 def vert_isog_ext(j_to_qf:dict,vertical_iso_data:dict)->dict:
     for l in vertical_iso_data['ancestor_data']:
         ancsl = vertical_iso_data['ancestor_data'][l]
@@ -447,25 +678,24 @@ def vert_isog_ext(j_to_qf:dict,vertical_iso_data:dict)->dict:
                         nextbatch.append(j1)
     return j_to_qf
 
-def compute_ecqf_bij_n2_ord(ap):
+def ecqf_ord_bij(ap,ldata=None):
     a,p = ap
-    assert a**2 < 4*p
     if a == 0:
-        raise ValueError('Use diff algo')
-    d = a**2 - 4*p
-    #check if d is Heegner number
+        raise ValueError('Use supersingular algorithm')
+    d = a*a-4*p
     hd = small_bij_check(d)
     if len(hd)>0:
-        data = {}
         return {j%p:hd[j] for j in hd}
-    #If we have conductor 1, we don't need 2 steps - just return the output of leaf alg
-    if discfac(a**2-4*p)[1] == 1:
-        return compute_ecqf_bij_ord_n2_leaves(ap)
-    #We're now in the general situation. We compute the vertical isogenies
-    #to obtain the leaves.
-    vert_data = get_ancestor_data_ord(ap)
-    leaves = vert_data['leaves']
-    # Compute the bijection between leaves
-    j_to_qf_leaves = compute_ecqf_bij_ord_n2_leaves(ap,leaves)
-    # Extend to the rest of the category using the data again
-    return vert_isog_ext(j_to_qf_leaves,vert_data)
+    if ldata == None:
+        ldata = disc_rig_ssl_search(d)
+    if type(ldata)!=dict:
+        raise ValueError('Failed to find ls with current tools')
+    ancdata = get_ancestor_data_ord(ap)
+    if not ldata['needs_sum']:
+        leaf_bij = ecqf_ord_n2_bij_leaves(ap,vertical_iso_data=ancdata,ldata = ldata)
+    elif len(ldata['ls'])==2 and ldata['l_sum']!= None:
+        leaf_bij = ecqf_ord_nn_bij_leaves(ap,ldata=ldata,ancdata=ancdata)
+    else:
+        raise ValueError('Failed to compute leaf bijection with current tools')
+    return vert_isog_ext(leaf_bij,ancdata)
+    
