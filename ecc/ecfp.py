@@ -10,6 +10,12 @@ with open('ecc/data/ssfp_pc_bij.json', 'r') as f:
 ss_precomputed_dictionary = {int(p):ssfpdata_raw[p]for p in ssfpdata_raw}
 
 def get_precomputed_ssdict(p):
+    sspcext = {5:{(0,1):(1,0,5),(0,-1):(2,2,3)},7:{(6,1):(1,0,7),(6,-1):(1,1,2)},
+           11:{(1,-1):(1,1,3),(1,1):(1,0,11),(0,1):(3,2,4),(0,-1):(3,-2,4)},
+           13:{(5,1):(1,0,13),(5,-1):(2,2,7)},
+           19:{(18,-1):(1,1,5),(18,1):(1,0,19),(7,1):(4,2,5),(7,-1):(4,-2,5)}}
+    if p in sspcext:
+        return sspcext[p]
     if p not in ss_precomputed_dictionary:
         raise ValueError(f'No data for p={p}')
     data = ss_precomputed_dictionary[p]
@@ -440,6 +446,10 @@ def mw_gens(ap:tuple[int],abc:tuple[int],n:int)->dict:
         return divide_cyclic_gen(kernel_gen_cyc(cmat.mat),m)
 
     
+
+######
+# Old #
+# ###    
 def get_endo_disc_cands(fg:tuple[int,int],p)->list[int]:
     j0 = fg_to_j(fg,p)
     hds = supp_in_hilbdb(p)
@@ -511,101 +521,3 @@ def j_to_disc(j:int,p:int)->int:
         a = trace_frob((f,g),p)
         return a**2 - 4*p
     
-def supsingtrace(p,l):
-    trace = 0
-    d3seen = False
-    d4seen = False
-    a = 0
-    while a*a < 4*l:
-        d,c = discfac(a*a-4*l)
-        qr = quad_rec(d,p)
-        if qr < 1:
-            while c % p == 0:
-                c = c // p
-            d0 = d*c*c
-            h = len(get_qfs_all(d0))
-            if d % p == 0 or d % l == 0:
-                if d == -3: 
-                    if not d3seen:
-                        trace += h
-                        d3seen = True
-                    else:
-                        trace+=h-1
-                elif d == -4:
-                    if not d4seen:
-                        trace += h
-                        d4seen = True
-                    else:
-                        trace+=h-1
-                else:  
-                    trace += h
-            else:
-                if d == -3: 
-                    if not d3seen:
-                        trace += 2*h
-                        d3seen = True
-                    else:
-                        trace+=2*(h-1)
-                elif d == -4:
-                    if not d4seen:
-                        trace += 2*h
-                        d4seen = True
-                    else:
-                        trace+=2*(h-1)
-                else:  
-                    trace += 2*h
-        a+=1                
-    return trace
-
-def x0l_fp_card(p,l):
-    card = 0
-    if quad_rec(-p,l)==1:
-        card += (len(get_qfs_all(-4*p)))
-    a = 1
-    cond0 = []
-    cond1728 = []
-    while a*a < 4*p:
-        d = a*a-4*p
-        d0,c = discfac(d)
-        if c % l == 0:
-            d1 = d0*((c//l)**2)
-            card1 = len(get_qfs_all(d))
-            card2 = len(get_qfs_all(d1))
-            if d0 == -3:
-                card+=(card1-1)+l*(card2-1)
-                cond0.append(c)
-            elif d0 == -4:
-                card+=(card1-1)+l*(card2-1)
-                cond1728.append(c)
-            else:
-                card+=card1+l*card2
-        else:
-            qr = quad_rec(d0,l)
-            if qr >=0:
-                card+=(1+qr)*len(get_qfs_all(d))
-        a+=1
-    # We ignored ordinary curves j = 0, 1728
-    if len(cond0) > 0:
-        card+=1+quad_rec(-3,l)
-        if min([c% l for c in cond0]) == 0:
-            if l % 3 == 1:
-                card += (l-1)//3
-            else:
-                card += (l+1)//3
-        else:
-            card+=1+quad_rec(-3,l)
-    if len(cond1728) > 0:
-        card+=1+quad_rec(-4,l)
-        if min([c% l for c in cond1728]) == 0:
-            if l % 4 == 1:
-                card += (l-1)//2
-            else:
-                card += (l+1)//2
-    return card
-
-
-
-########################
-# Elliptic curve class #
-########################
-

@@ -31,6 +31,9 @@ def clgr_size_gen(dc):
     d,c = discfac(dc)
     return clgr_size_fd(d)*twisted_phi(d,c)
 
+def clgr_sum(dc):
+    d,c = discfac(dc)
+    return sum([clgr_size_gen(d*c0*c0) for c0 in divisors(c)])
 
 def clgr_2len(d):
     if d % 4 == 1:
@@ -46,3 +49,52 @@ def clgr_2len(d):
     
 def clgr2_size(d):
     return 2**(clgr_2len(d)-1)
+
+###############################
+# Modular curves and SS trace #
+
+def supsingtrace(p,l):
+    trace = 0
+    d3seen = False
+    d4seen = False
+    a = 0
+    while a*a < 4*l:
+        d,c = discfac(a*a-4*l)
+        qr = quad_rec(d,p)
+        if qr < 1:
+            while c % p == 0:
+                c = c // p
+            d0 = d*c*c
+            h = clgr_sum(d0)
+            if d % p == 0 or d % l == 0:
+                if d == -3: 
+                    if not d3seen:
+                        trace += h
+                        d3seen = True
+                    else:
+                        trace+=h-1
+                elif d == -4:
+                    if not d4seen:
+                        trace += h
+                        d4seen = True
+                    else:
+                        trace+=h-1
+                else:  
+                    trace += h
+            else:
+                if d == -3: 
+                    if not d3seen:
+                        trace += 2*h
+                        d3seen = True
+                    else:
+                        trace+=2*(h-1)
+                elif d == -4:
+                    if not d4seen:
+                        trace += 2*h
+                        d4seen = True
+                    else:
+                        trace+=2*(h-1)
+                else:  
+                    trace += 2*h
+        a+=1                
+    return trace
