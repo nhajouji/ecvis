@@ -10,6 +10,13 @@ def gcd(a:int,b:int)->int:
         a = r
     return a
 
+def lcm(a:int,b:int):
+    d = gcd(a,b)
+    if d!= 0:
+        return (a*b)//d
+    else:
+        return a*b
+
 def gcd_list(l):
     l = list({c for c in l if c != 0})
     if len(l)==0:
