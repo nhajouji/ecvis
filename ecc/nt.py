@@ -94,6 +94,15 @@ def primefact(n:int)->dict:
         pf[n]=1
     return pf
 
+def find_prim_root(p):
+    mg_ord = p-1
+    mg_max_facs = [mg_ord//m for m in primefact(mg_ord)]
+    for a in range(2,p):
+        aks = [pow(a,m,p) for m in mg_max_facs]
+        if min(aks)>1:
+            return a
+    return 1
+
 def primeQ(n:int)->bool:
     pfn = primefact(n)
     return len(pfn)==1 and max(pfn.values())==1
