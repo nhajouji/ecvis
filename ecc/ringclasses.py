@@ -86,7 +86,7 @@ class IntegerSquareMatrix:
         d = self.gcd()
         if d < 2:
             return self,d
-        return IntegerSquareMatrix([[a//d for a in r] for r in m]),d
+        return IntegerSquareMatrix([[a//self.gcd() for a in r] for r in self.mat]),self.gcd()
     
     
     def transpose(self):
