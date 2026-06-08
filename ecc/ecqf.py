@@ -26,11 +26,14 @@ import json
 
 def strtup_to_tup(s):
     return tuple([int(s0) for s0 in s[1:-1].split(',')])
+
 with open('ecc/data/ecqf_ord_pcbij_4to256.json', 'r') as f:
     ecqf_ord_pcbij_4to256_loaded = json.load(f)
 ecqf_ord_256_pc = {strtup_to_tup(aps):{int(ns):tuple(ecqf_ord_pcbij_4to256_loaded[aps][ns] )
                                        for ns in ecqf_ord_pcbij_4to256_loaded[aps]} 
                                        for aps in ecqf_ord_pcbij_4to256_loaded}
+
+
 
 ##############
 # Misc tools #
@@ -68,9 +71,7 @@ def scoredic_to_tups(scores:dict):
     ls.sort(reverse=True)
     return tuple(ls),tuple([scores[l] for l in ls])
 
-def qf_ev(qf,m):
-    a,b,c = qf
-    return list({a*x*x+b*x*y+c*y*y for x in range(-m,m+1) for y in range(-m,m+1)})
+
 
 
 def qf_reps_pm(d):
@@ -84,7 +85,7 @@ def disc_to_ssls(d):
     ls = {}
     qf0 = class_group_id(d)
     for qf in qf_reps:
-        qfls = [l for l in qf_ev(qf,10) if l in ssprimes]
+        qfls = [l for l in qf_evs_inrange(qf,10) if l in ssprimes]
         if len(qfls)>0:
             l0 = min(qfls)
             ls[l0]=len(qf_isog_cycle(qf0,l0))
@@ -97,7 +98,7 @@ def disc_to_ssl_qfs(d):
     ls = {}
     qf0 = class_group_id(d)
     for qf in qf_reps:
-        qfls = [l for l in qf_ev(qf,10) if l in ssprimes]
+        qfls = [l for l in qf_evs_inrange(qf,10) if l in ssprimes]
         if len(qfls)>0:
             for l in qfls:
                 ls[qf] = min(qfls)
@@ -677,6 +678,8 @@ def vert_isog_ext(j_to_qf:dict,vertical_iso_data:dict)->dict:
                     if j1 in ancsl:
                         nextbatch.append(j1)
     return j_to_qf
+
+
 
 def ecqf_ord_bij(ap,ldata=None):
     a,p = ap

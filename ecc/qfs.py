@@ -3,9 +3,22 @@ from ecc.identities import *
 from ecc.ringclasses import IntegerSquareMatrix
 from ecc.modularpolynomials import *
 
-###################
-# Quadratic Forms #
-###################
+                                    ###################
+                                    # Quadratic Forms #
+                                    ###################
+
+### Basics
+
+def qf_ev(qf,xy):
+    a,b,c = qf
+    x,y = xy
+    return a*x*x+b*x*y+c*y*y
+
+def qf_evs_inrange(qf:tuple[int,int,int],m:int):
+    a,b,c = qf
+    return list({qf_ev(qf,(x,y)) for x in range(-m,m+1) for y in range(-m,m+1)})
+
+
 
 def qf_in_fundom(qf:tuple[int,int,int])->bool:
     a,b,c = qf
@@ -202,9 +215,9 @@ def get_qfs_all(d:int):
             if num % a == 0:
                 c = num//a
                 if qf_in_fundom((a,b,c)):
-                    reps_found.append((a,b,c))
+                    reps_found.append(qf_make_prim((a,b,c)))
                 if b!= 0 and qf_in_fundom((a,-b,c)):
-                    reps_found.append((a,-b,c))
+                    reps_found.append(qf_make_prim((a,-b,c)))
             a+=1
         b+=2
     return reps_found
@@ -288,6 +301,18 @@ def qf_isogs(qf0,l):
 def qf_isogs_hor(qf0,l):
     return [qf for qf in qf_isogs(qf0,l) if qf_disc(qf)==qf_disc(qf0)]
 
+def qfs_isogs_int(qfl1,qfl2):
+    qf1,l1 = qfl1
+    qf2,l2 = qfl2
+    qf3s = {qf for qf in qf_isogs_hor(qf1,l1) if qf2 in qf_isogs_hor(qf2,l2)}
+    if len(qf3s)==1:
+        return list(qf3s)[0]
+    else:
+        # Something went wrong, either there is no tuple satisfying those conditions
+        # or there are multiple tuples - second would be due to an edge case, first should be impossible
+        # if pairs are chosen appropriately
+        return qf3s
+        
 # Computing isogeny cycles
 def qf_isog_cycle(qf0,l):
     cyc = qf_isogs(qf0,l)
@@ -335,90 +360,6 @@ def cycs_from_ancestors(qf0):
 
 
 
-
-####
-# TODO: Replace qf_iso_cycle below with qf_isog_cycle
-
-def qf_iso_cycle(qf0:tuple[int,int,int],l:int):
-    cycle = []
-    nextbatch = [qf0]
-    while len(nextbatch)>0:
-        qf = nextbatch[0]
-        cycle.append(qf)
-        nextbatch = [qf1 for qf1 in qf_isogenies_hor(qf,l) if qf1 not in cycle]
-    return cycle
-
-def qf_iso_cycle_oriented(qf0:tuple[int,int,int],qf1:tuple[int,int,int],l):
-    cycle = qf_isog_cycle(qf0,l)
-    if len(cycle)<2:
-        raise ValueError('No cycle in this degree')
-    if cycle[1]==qf1:
-        return cycle
-    elif cycle[-1]==qf1:
-        return [qf0]+cycle[:0:-1]
-    else:
-        raise ValueError('Forms are not neighbors in the graph')
-    
-def intersect_qf_codoms(qf0,qf1,l0,l1):
-    return [qf2 for qf2 in qf_isogenies_hor(qf0,l0) if qf2 in qf_isogenies_hor(qf1,l1)]
-
-def qf_iso_frame(qf1,qfa,la,lb,lab):
-    intab = intersect_qf_codoms(qf1,qfa,lab,lb)
-    if len(intab)!= 1:
-        raise ValueError(f'Intersection for ab has size {len(intab)}')
-    qfab = intab[0]
-    intb = intersect_qf_codoms(qf1,qfab,lb,la)
-    if len(intb)!= 1:
-        raise ValueError(f'Intersection for b has size {len(intb)}')
-    return intb[0],qfab
-
-def qf_iso_mat_from_frame(qf1,qfa,la,lb,lab):
-    qfb,qfab = qf_iso_frame(qf1,qfa,la,lb,lab)
-    col0 = qf_iso_cycle_oriented(qf1,qfb,lb)
-    col1 = qf_iso_cycle_oriented(qfa,qfab,lb)
-    mat = []
-    for i, qfbi in enumerate(col0):
-        qfabi = col1[i]
-        mat.append(qf_iso_cycle_oriented(qfbi,qfabi,la))
-    return mat
-
-def qf_isomat_ext(mat,l3):
-    return [[qf_isog_cycle(qf,l3)[-1] for qf in row] for row in mat]
-
-### Old stuff below ###
-### May delete ### 
-
-def d_to_rqf(d:int)->tuple:
-    if d >= 0 or (d%4 >1):
-        raise ValueError('Input must be a negative discriminant')
-    if d % 4 == 0:
-        return (1,0,(-d)//4)
-    else:
-        return (1,1,-(d//4))
-    
-def d_to_ssl_cycle_data(d:int)->dict:
-    qf0 = d_to_rqf(d)
-    qf0_data = {l:qf_iso_cycle(qf0,l) for l in atkin_polys_dict}
-    ns = [len(qf0_data[l]) for l in qf0_data]
-    nmx = max(ns)
-    l0 = min([l for l in qf0_data if len(qf0_data[l])==nmx])
-    data = {qf0:{l0:qf0_data[l0]}}
-    for qf1 in data[qf0][l0]:
-        if qf1 not in data:
-            data[qf1]={}
-    # look for cycles of length 2 among remaining l's
-    qf2s_seen = [qf for qf in data]
-    for l1 in qf0_data:
-        if l1 != l0 and len(qf0_data[l1])==2:
-            qf2 = qf0_data[l1][1]
-            if qf2 not in qf2s_seen:
-                data[qf0][l1]=qf2
-                qf2s_seen.append(qf2)
-                for qf1 in data:
-                    if qf1!=qf0:
-                        qf2s = qf_iso_cycle(qf1,l1)
-                        data[qf1][l1]=qf2s[-1]
-    return data
 
 
 ##########
